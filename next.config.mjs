@@ -1,4 +1,11 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
-
+const nextConfig = {
+ images: {
+  domains: [
+    'cdn.jewelify.com',
+    'drive.google.com',
+    'lh3.googleusercontent.com',
+  ],
+},
+};
 export default nextConfig;

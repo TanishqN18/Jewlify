@@ -1,26 +1,48 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Base font */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Poppins', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1, h2, h3 {
+  font-family: 'Playfair Display', serif;
+}
+
+/* Light Theme */
+body {
+  background-color: #ffffff;
+  color: #171717;
+}
+
+/* Dark Theme */
+.dark body {
+  background-color: #0a0a0a;
+  color: #ededed;
+}
+
+/* Custom brand color */
+:root {
+  --color-gold: #d4af37;
+}
+
+.bg-gold {
+  background-color: var(--color-gold);
+}
+
+.text-gold {
+  color: var(--color-gold);
+}
+
+/* Smooth animation for theme toggle */
+html {
+  scroll-behavior: smooth;
+}
+
+a {
+  @apply transition-colors duration-300;
 }
