@@ -1,6 +1,6 @@
 'use client';
 
-import useFilterStore from '../components/store/filterstore';
+import useFilterStore from '../components/store/FilterStore';
 
 export default function FilterSidebar() {
   const { category, setCategory, priceRange, setPriceRange } = useFilterStore();

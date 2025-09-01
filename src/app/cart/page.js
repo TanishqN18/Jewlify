@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import useCartStore from '../../components/store/cartStore';
-import CartItems from '../../components/CartItems';
+import useCartStore from '../../../components/store/cartStore';
+import CartItems from '../../../components/CartItem';
 
 export default function CartPage() {
   const { cart, updateQuantity } = useCartStore();
