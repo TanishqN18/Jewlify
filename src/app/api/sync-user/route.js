@@ -1,7 +1,7 @@
 // app/api/syncUser/route.js (App Router)
 import { currentUser } from '@clerk/nextjs/server';
 import dbConnect from '../../../lib/dbConnect';
-import User from '../../../models/User';
+import User from '../../../models/Users';
 
 export async function GET(req) {
   try {
