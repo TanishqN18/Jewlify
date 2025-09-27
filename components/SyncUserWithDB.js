@@ -12,7 +12,6 @@ export default function SyncUserWithDB() {
 
     const syncUser = async () => {
       try {
-        console.log("Syncing user:", user.id);
         await axios.post("/api/sync-user", {
           email: user.emailAddresses[0]?.emailAddress,
           name: user.fullName || user.firstName + " " + user.lastName,

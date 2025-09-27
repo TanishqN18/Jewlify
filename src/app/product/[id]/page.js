@@ -3,21 +3,22 @@ export const dynamic = 'force-dynamic';
 import dbConnect from '../../../../lib/dbConnect';
 import Product from '../../../../models/Product';
 import ProductDetailPage from '../../../../components/ProductDetail';
+import mongoose from 'mongoose';
 
-export default async function ProductPage({ params }) {
+export default async function ProductPage(props) {
+  // Await params per Next.js requirement
+  const { params } = await props;
   const { id } = params;
+
   await dbConnect();
 
-  const product = await Product.findById(id).lean();
-
-  if (!product) {
+  // Invalid ObjectId -> Not Found UI (using your theme classes only)
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     return (
       <div className="min-h-screen bg-primary">
-        <div className="p-10 text-center">
-          <h1 className="text-2xl font-bold text-red-500 dark:text-red-400">
-            Product not found
-          </h1>
-          <p className="text-secondary mt-2">
+        <div className="mx-auto max-w-5xl px-4 py-8 text-center">
+          <h1 className="text-2xl font-bold text-primary">Product not found</h1>
+          <p className="mt-2 text-secondary">
             The product you are looking for does not exist.
           </p>
         </div>
@@ -25,9 +26,24 @@ export default async function ProductPage({ params }) {
     );
   }
 
-  // Get 4 random related products excluding the current one
+  const product = await Product.findById(id).lean();
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-primary">
+        <div className="mx-auto max-w-5xl px-4 py-8 text-center">
+          <h1 className="text-2xl font-bold text-primary">Product not found</h1>
+          <p className="mt-2 text-secondary">
+            The product you are looking for does not exist.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Related products (exclude current)
   const relatedProducts = await Product.aggregate([
-    { $match: { _id: { $ne: product._id } } },
+    { $match: { _id: { $ne: new mongoose.Types.ObjectId(id) } } },
     { $sample: { size: 4 } },
   ]);
 

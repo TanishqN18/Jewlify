@@ -1,114 +1,33 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
-const useCartStore = create(
-  persist(
-    (set, get) => ({
-      cart: [],
-      promoCode: '',
-      discount: 0,
+const useCartStore = create((set, get) => ({
+  cart: [],
+  setCart: (cart) => set({ cart }),
 
-      addToCart: (product) => {
-        const safeProduct = {
-          _id: product._id,
-          name: product.name || product.title || 'Unnamed Product',
-          price: product.price || 0,
-          image:
-            product.image ||
-            product.thumbnail ||
-            (product.images && product.images[0]) ||
-            '/Images/fallback.png',
-          quantity: 1,
-        };
-
-        set((state) => {
-          const existing = state.cart.find((item) => item._id === safeProduct._id);
-          if (existing) {
-            return {
-              cart: state.cart.map((item) =>
-                item._id === safeProduct._id
-                  ? { ...item, quantity: item.quantity + 1 }
-                  : item
-              ),
-            };
-          } else {
-            return {
-              cart: [...state.cart, safeProduct],
-            };
-          }
-        });
-      },
-
-      removeFromCart: (id) =>
-        set((state) => ({
-          cart: state.cart.filter((item) => item._id !== id),
-        })),
-
-      increaseQuantity: (id) =>
-        set((state) => ({
-          cart: state.cart.map((item) =>
-            item._id === id ? { ...item, quantity: item.quantity + 1 } : item
-          ),
-        })),
-
-      decreaseQuantity: (id) =>
-        set((state) => ({
-          cart: state.cart
-            .map((item) =>
-              item._id === id && item.quantity > 1
-                ? { ...item, quantity: item.quantity - 1 }
-                : item
-            )
-            .filter((item) => item.quantity > 0),
-        })),
-
-      clearCart: () => set({ cart: [], promoCode: '', discount: 0 }),
-
-      applyPromo: (code) =>
-        set((state) => {
-          if (code.trim().toLowerCase() === 'jewel10') {
-            return { promoCode: code, discount: 0.1 };
-          } else {
-            return { promoCode: code, discount: 0 };
-          }
-        }),
-
-      getTotalPrice: () => {
-        return get().cart.reduce(
-          (total, item) => total + item.price * item.quantity,
-          0
-        );
-      },
-
-      handleBuyNow: (product, router) => {
-        const safeProduct = {
-          _id: product._id,
-          name: product.name || product.title || 'Unnamed Product',
-          price: product.price || 0,
-          image:
-            product.image ||
-            product.thumbnail ||
-            (product.images && product.images[0]) ||
-            '/placeholder.jpg',
-          quantity: 1,
-        };
-
-        set({
-          cart: [safeProduct],
-          promoCode: '',
-          discount: 0,
-        });
-
-        if (router) {
-          router.push('/checkout');
-        }
-      },
-    }),
-    {
-      name: 'cart-storage', // key for localStorage
-      getStorage: () => localStorage,
+  addToCart: (item) => {
+    const cart = get().cart;
+    const idx = cart.findIndex((i) => i._id === item._id);
+    if (idx > -1) {
+      const next = cart.slice();
+      next[idx] = { ...next[idx], quantity: (next[idx].quantity || 1) + 1 };
+      set({ cart: next });
+    } else {
+      set({ cart: [...cart, { ...item, quantity: Number(item.quantity || 1) }] });
     }
-  )
-);
+  },
+
+  removeFromCart: (id) => set((s) => ({ cart: s.cart.filter((i) => i._id !== id) })),
+
+  updateQuantity: (id, qty) =>
+    set((s) => ({
+      cart: s.cart
+        .map((i) =>
+          i._id === id ? { ...i, quantity: Math.max(1, Number(qty || 1)) } : i
+        )
+        .filter((i) => i.quantity > 0),
+    })),
+
+  clearCart: () => set({ cart: [] }),
+}));
 
 export default useCartStore;

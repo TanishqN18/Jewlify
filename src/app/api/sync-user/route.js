@@ -14,7 +14,6 @@ export async function POST(req) {
     const body = await req.json();
     const { email, name, image, clerkId } = body;
 
-    console.log("Syncing user with clerkId:", clerkId);
 
     // Check if user already exists
     let user = await User.findOne({ clerkId });
@@ -30,7 +29,6 @@ export async function POST(req) {
         },
         { new: true }
       );
-      console.log("User updated:", user._id);
     } else {
       // Create new user
       user = new User({
