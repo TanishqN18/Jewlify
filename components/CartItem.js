@@ -21,7 +21,7 @@ export default function CartItems() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="flex flex-col sm:flex-row items-center gap-4 p-4 border rounded-lg shadow-md dark:border-gray-700 bg-white/60 dark:bg-black/40 backdrop-blur-md"
+          className="flex flex-col sm:flex-row items-center gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-md bg-primary backdrop-blur-md transition-all duration-300"
         >
           {/* Product Image */}
           <div className="w-24 h-24 relative">
@@ -35,8 +35,8 @@ export default function CartItems() {
 
           {/* Product Info */}
           <div className="flex-1 space-y-1 text-center sm:text-left">
-            <h3 className="text-lg font-semibold">{item.title}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">₹{item.price.toFixed(2)}</p>
+            <h3 className="text-lg font-semibold text-primary transition-colors duration-300">{item.title}</h3>
+            <p className="text-sm text-secondary transition-colors duration-300">₹{item.price.toFixed(2)}</p>
             <p className={`text-xs ${item.inStock ? 'text-green-600' : 'text-red-500'}`}>
               {item.inStock ? 'In Stock' : 'Out of Stock'}
             </p>
@@ -45,17 +45,17 @@ export default function CartItems() {
           {/* Quantity + Remove */}
           <div className="flex items-center gap-3">
             {/* Quantity Control */}
-            <div className="flex items-center gap-2 border rounded px-2 py-1 bg-white dark:bg-black border-gray-300 dark:border-gray-700">
+            <div className="flex items-center gap-2 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 bg-primary transition-all duration-300">
               <button
                 onClick={() => handleQtyChange(item.id, item.quantity - 1)}
-                className="text-gray-700 dark:text-gray-300 hover:text-red-500 transition"
+                className="text-primary hover:text-red-500 transition-colors duration-300"
               >
                 <MinusIcon className="w-4 h-4" />
               </button>
-              <span className="px-2 font-medium">{item.quantity}</span>
+              <span className="px-2 font-medium text-primary transition-colors duration-300">{item.quantity}</span>
               <button
                 onClick={() => handleQtyChange(item.id, item.quantity + 1)}
-                className="text-gray-700 dark:text-gray-300 hover:text-green-500 transition"
+                className="text-primary hover:text-green-500 transition-colors duration-300"
               >
                 <PlusIcon className="w-4 h-4" />
               </button>
@@ -64,7 +64,7 @@ export default function CartItems() {
             {/* Remove Button */}
             <button
               onClick={() => removeFromCart(item.id)}
-              className="text-red-600 hover:text-red-800"
+              className="text-red-600 hover:text-red-800 transition-colors duration-300"
               title="Remove item"
             >
               <TrashIcon className="w-5 h-5" />

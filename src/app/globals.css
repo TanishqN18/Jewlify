@@ -6,30 +6,33 @@
 /* Base font */
 body {
   font-family: 'Poppins', sans-serif;
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-h1, h2, h3 {
-  font-family: 'Playfair Display', serif;
-}
-
-/* Light Theme */
-body {
-  background-color: #ffffff;
-  color: #171717;
+/* Light Theme (default) */
+:root {
+  --color-gold: #d4af37;
+  --bg-primary: #ffffff;
+  --text-primary: #171717;
+  --bg-secondary: #f8f9fa;
+  --text-secondary: #6b7280;
 }
 
 /* Dark Theme */
-.dark body {
-  background-color: #0a0a0a;
-  color: #ededed;
+html.dark {
+  --bg-primary: #0a0a0a;
+  --text-primary: #ededed;
+  --bg-secondary: #1a1a1a;
+  --text-secondary: #9ca3af;
+}
+
+/* Apply variables to body */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Custom brand color */
-:root {
-  --color-gold: #d4af37;
-}
-
 .bg-gold {
   background-color: var(--color-gold);
 }
@@ -43,6 +46,33 @@ html {
   scroll-behavior: smooth;
 }
 
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
 a {
-  @apply transition-colors duration-300;
+  transition-property: color;
+  transition-duration: 300ms;
+}
+
+/* Additional dark mode utilities */
+.bg-primary {
+  background-color: var(--bg-primary);
+}
+
+.bg-secondary {
+  background-color: var(--bg-secondary);
+}
+
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+/* Ensure dark mode works */
+.dark {
+  color-scheme: dark;
 }

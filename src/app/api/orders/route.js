@@ -1,6 +1,7 @@
 import { getAuth } from "@clerk/nextjs/server";
 import dbConnect from "../../../../lib/dbConnect";
-import Order from "../../../../models/order";
+import Order from "../../../../models/Order";
+import User from "../../../../models/Users";
 
 export async function POST(req) {
   try {
@@ -42,17 +43,18 @@ export async function POST(req) {
 
 export async function GET(req) {
   try {
-    // Authenticate user
-    const { userId } = getAuth(req);
-    if (!userId) {
-      return new Response(JSON.stringify({ message: "Unauthorized" }), { status: 401 });
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const clerkId = searchParams.get("clerkId");
+
+    if (!clerkId) {
+      return Response.json({ orders: [] }, { status: 400 });
     }
 
-    await dbConnect();
+    // Directly query orders by userId (which is Clerk ID)
+    const orders = await Order.find({ userId: clerkId }).sort({ createdAt: -1 });
 
-    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
-
-    return new Response(JSON.stringify(orders), { status: 200 });
+    return Response.json({ orders }, { status: 200 });
 
   } catch (error) {
     console.error("Error fetching orders:", error);

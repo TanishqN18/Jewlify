@@ -8,6 +8,7 @@ export async function GET(req) {
     await dbConnect();
     const { userId } = getAuth(req);
 
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -23,6 +24,7 @@ export async function GET(req) {
         name: clerkUser?.fullName || 'User',
         email: clerkUser?.primaryEmailAddress?.emailAddress || '',
         profileImage: clerkUser?.imageUrl || '',
+        addresses: [], // Initialize empty addresses array
         createdAt: new Date(),
       });
     } else {
@@ -40,12 +42,25 @@ export async function GET(req) {
         user.profileImage = clerkUser.imageUrl;
         updated = true;
       }
+      // Ensure addresses array exists
+      if (!user.addresses) {
+        user.addresses = [];
+        updated = true;
+      }
       if (updated) {
         await user.save();
       }
     }
 
-    return NextResponse.json(user);
+
+    // Return in the format expected by AddressBook component
+    return NextResponse.json({ 
+      user: {
+        ...user.toObject(),
+        addresses: user.addresses || []
+      }
+    });
+    
   } catch (error) {
     console.error('Error fetching user:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -22,7 +22,15 @@ export default function ProductGrid({ allProducts }) {
       {filtered.length > 0 ? (
         filtered.map((product) => <ProductCard key={product._id} product={product} />)
       ) : (
-        <p className="text-gray-500 dark:text-gray-300">No products found.</p>
+        <div className="col-span-full flex flex-col items-center justify-center py-16">
+          <div className="text-6xl mb-4 opacity-50">💎</div>
+          <p className="text-secondary text-lg text-center">
+            No products found matching your criteria.
+          </p>
+          <p className="text-secondary text-sm text-center mt-2 opacity-75">
+            Try adjusting your filters or browse all categories.
+          </p>
+        </div>
       )}
     </div>
   );

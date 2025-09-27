@@ -1,32 +1,59 @@
-// app/api/syncUser/route.js (App Router)
-import { currentUser } from '@clerk/nextjs/server';
-import dbConnect from '../../../../lib/dbConnect';
-import User from '../../../../models/Users';
+import dbConnect from "../../../../lib/dbConnect";
+import User from "../../../../models/Users";
+import { getAuth } from "@clerk/nextjs/server";
 
-export async function GET(req) {
+export async function POST(req) {
   try {
     await dbConnect();
-    const user = await currentUser();
-
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Not authenticated' }), { status: 401 });
+    
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const existingUser = await User.findOne({ clerkId: user.id });
+    const body = await req.json();
+    const { email, name, image, clerkId } = body;
 
-    if (!existingUser) {
-      const newUser = await User.create({
-        clerkId: user.id,
-        email: user.emailAddresses[0]?.emailAddress || '',
-        name: user.firstName + ' ' + user.lastName,
+    console.log("Syncing user with clerkId:", clerkId);
+
+    // Check if user already exists
+    let user = await User.findOne({ clerkId });
+
+    if (user) {
+      // Update existing user
+      user = await User.findOneAndUpdate(
+        { clerkId },
+        { 
+          email,
+          name,
+          image,
+        },
+        { new: true }
+      );
+      console.log("User updated:", user._id);
+    } else {
+      // Create new user
+      user = new User({
+        email,
+        name,
+        image,
+        clerkId,
+        addresses: [] // Initialize with empty addresses array
       });
-
-      return new Response(JSON.stringify({ status: 'created', user: newUser }), { status: 201 });
+      await user.save();
+      console.log("User created:", user._id);
     }
 
-    return new Response(JSON.stringify({ status: 'exists', user: existingUser }), { status: 200 });
+    return Response.json({ 
+      message: "User synced successfully", 
+      user 
+    }, { status: 200 });
+
   } catch (error) {
-    console.error('Sync error:', error);
-    return new Response(JSON.stringify({ error: 'Server error' }), { status: 500 });
+    console.error("Sync user error:", error);
+    return Response.json({ 
+      error: "Failed to sync user",
+      details: error.message 
+    }, { status: 500 });
   }
 }

@@ -13,8 +13,8 @@ export default async function ShopPage() {
   }));
 
   return (
-    <div className="px-4 sm:px-10 py-10 min-h-screen bg-neutral-50 dark:bg-black">
-      <h1 className="text-4xl font-extrabold mb-10 text-center text-gray-800 dark:text-white tracking-wide">
+    <div className="px-4 sm:px-10 py-10 min-h-screen bg-primary transition-all duration-300">
+      <h1 className="text-4xl font-extrabold mb-10 text-center text-primary tracking-wide transition-colors duration-300">
         Explore Our Collection
       </h1>
 
@@ -23,7 +23,9 @@ export default async function ShopPage() {
           <FilterSidebarWrapper />
         </div>
 
-        <ProductGrid allProducts={safeProducts} />
+        <div className="lg:w-3/4">
+          <ProductGrid allProducts={safeProducts} />
+        </div>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPinterest, FaWhatsapp, FaTwitter } from 'react-icons/fa';
-import useCartStore  from '../components/store/cartStore'; // ✅ hook integration
+import useCartStore from '../components/store/cartStore';
 
 // Reusable Components
 const Badge = ({ text }) => (
@@ -28,14 +28,14 @@ const QuantitySelector = ({ quantity, setQuantity }) => (
   <div className="flex items-center gap-3">
     <button
       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-      className="text-xl w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700"
+      className="text-xl w-8 h-8 rounded-full bg-secondary text-primary transition-all duration-300"
     >
       −
     </button>
-    <span className="text-lg">{quantity}</span>
+    <span className="text-lg text-primary">{quantity}</span>
     <button
       onClick={() => setQuantity(quantity + 1)}
-      className="text-xl w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700"
+      className="text-xl w-8 h-8 rounded-full bg-secondary text-primary transition-all duration-300"
     >
       +
     </button>
@@ -59,140 +59,144 @@ export default function ProductDetailPage({ product, relatedProducts }) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
-      {/* PRODUCT SECTION */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-        {/* Image */}
-        <div className="relative w-full h-[300px] sm:h-[400px] md:h-[500px]">
-          <Image
-            src={product.image}
-            alt={product.name}
-            fill
-            className="object-contain rounded-xl"
-          />
-        </div>
-
-        {/* Details */}
-        <div className="space-y-5">
-          <h1 className="text-3xl font-bold">{product.name}</h1>
-          <div className="flex items-center gap-3">
-            <Badge text={product.tag || product.category} />
-            <span className="text-sm text-green-500 font-medium">In Stock</span>
-          </div>
-          <p className="text-2xl font-semibold text-purple-600 dark:text-purple-400">₹{product.price}</p>
-          <p className="text-gray-700 dark:text-gray-300">{product.description}</p>
-
-          {/* Quantity + Buttons */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-4">
-            <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
-            <Button onClick={handleAddToCart}>Add to Cart</Button>
-            <Button
-              onClick={handleBuyNow}
-              className="bg-gradient-to-r from-pink-500 to-orange-500"
-            >
-              Buy Now
-            </Button>
+    <div className="bg-primary min-h-screen transition-all duration-300">
+      {/* Product Detail Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Product Image */}
+          <div className="bg-secondary rounded-lg p-6 transition-all duration-300">
+            <Image
+              src={product.image}
+              alt={product.name}
+              width={500}
+              height={500}
+              className="w-full h-auto rounded-lg"
+            />
           </div>
 
-          {/* Share Buttons */}
-          <div className="flex items-center gap-4 mt-6">
-            <span className="font-medium">Share:</span>
-            <a href={`https://pinterest.com/pin/create/button/?url=${shareUrl}`} target="_blank" rel="noopener noreferrer">
-              <FaPinterest className="text-pink-600 text-2xl hover:scale-110 transition" />
-            </a>
-            <a href={`https://wa.me/?text=Check this out: ${shareUrl}`} target="_blank" rel="noopener noreferrer">
-              <FaWhatsapp className="text-green-500 text-2xl hover:scale-110 transition" />
-            </a>
-            <a href={`https://twitter.com/intent/tweet?url=${shareUrl}`} target="_blank" rel="noopener noreferrer">
-              <FaTwitter className="text-sky-500 text-2xl hover:scale-110 transition" />
-            </a>
-          </div>
-        </div>
-      </div>
+          {/* Product Info */}
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold text-primary mb-2 transition-colors duration-300">
+                {product.name}
+              </h1>
+              <p className="text-gold text-2xl font-semibold">
+                ₹{product.price.toLocaleString()}
+              </p>
+            </div>
 
-      {/* TABS SECTION */}
-      <div className="mt-16">
-        <div className="flex gap-6 border-b border-gray-300 dark:border-gray-700">
-          {['description', 'reviews', 'care'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`py-2 font-semibold capitalize transition border-b-2 ${
-                activeTab === tab
-                  ? 'border-purple-500 text-purple-600 dark:text-purple-400'
-                  : 'border-transparent text-gray-500'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+            <div>
+              <h3 className="text-lg font-semibold text-primary mb-2 transition-colors duration-300">
+                Description
+              </h3>
+              <p className="text-secondary leading-relaxed transition-colors duration-300">
+                {product.description || "Experience the perfect blend of traditional craftsmanship and modern elegance with this exquisite piece from our premium collection."}
+              </p>
+            </div>
 
-        <div className="mt-6 min-h-[120px] text-gray-700 dark:text-gray-300">
-          <AnimatePresence mode="wait">
-            {activeTab === 'description' && (
-              <motion.div
-                key="description"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3 }}
-              >
-                <p>{product.description}</p>
-              </motion.div>
-            )}
-            {activeTab === 'reviews' && (
-              <motion.div
-                key="reviews"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3 }}
-              >
-                <p>No reviews yet. Be the first to review this product!</p>
-              </motion.div>
-            )}
-            {activeTab === 'care' && (
-              <motion.div
-                key="care"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3 }}
-              >
-                <ul className="list-disc ml-5 space-y-2">
-                  <li>Avoid contact with water, perfume, and harsh chemicals.</li>
-                  <li>Store in a dry, cool place in the original packaging.</li>
-                  <li>Clean gently with a soft dry cloth after use.</li>
-                </ul>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+            {/* Quantity Selector */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-primary transition-colors duration-300">
+                Quantity
+              </h3>
+              <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
+            </div>
 
-      {/* RELATED PRODUCTS */}
-      <div className="mt-20">
-        <h2 className="text-xl font-bold mb-6">Related Products</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-          {relatedProducts?.map((p) => (
-            <Link href={`/product/${p._id}`} key={p._id}>
-              <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow hover:shadow-md transition-all">
-                <div className="relative w-full h-40">
-                  <Image
-                    src={p.image}
-                    alt={p.name}
-                    fill
-                    className="object-contain rounded"
-                  />
-                </div>
-                <h3 className="mt-2 text-sm font-semibold">{p.name}</h3>
-                <p className="text-sm text-purple-500 font-medium">₹{p.price}</p>
+            <div className="flex items-center space-x-4">
+              <span className="bg-gold text-white px-3 py-1 rounded-full text-sm font-medium">
+                {product.category}
+              </span>
+              {product.tag && (
+                <span className="bg-secondary text-secondary px-3 py-1 rounded-full text-sm transition-all duration-300">
+                  {product.tag}
+                </span>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <button 
+                onClick={handleAddToCart}
+                className="w-full bg-gold hover:bg-yellow-600 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Add to Cart - ₹{(product.price * quantity).toLocaleString()}
+              </button>
+              
+              <button 
+                onClick={handleBuyNow}
+                className="w-full bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Buy Now
+              </button>
+            </div>
+
+            {/* Share Options */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6 transition-colors duration-300">
+              <h3 className="text-lg font-semibold text-primary mb-3 transition-colors duration-300">
+                Share this product
+              </h3>
+              <div className="flex space-x-3">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`Check out this amazing product: ${product.name} - ${shareUrl}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors duration-300"
+                >
+                  <FaWhatsapp size={20} />
+                </a>
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out this amazing product: ${product.name}`)}&url=${shareUrl}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors duration-300"
+                >
+                  <FaTwitter size={20} />
+                </a>
+                <a
+                  href={`https://pinterest.com/pin/create/button/?url=${shareUrl}&description=${encodeURIComponent(product.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-300"
+                >
+                  <FaPinterest size={20} />
+                </a>
               </div>
-            </Link>
-          ))}
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Related Products */}
+      {relatedProducts && relatedProducts.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h2 className="text-2xl font-bold text-primary mb-6 transition-colors duration-300">
+            Related Products
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {relatedProducts.map((relatedProduct) => (
+              <Link
+                key={relatedProduct._id}
+                href={`/product/${relatedProduct._id}`}
+                className="bg-secondary rounded-lg p-4 hover:shadow-lg transition-all duration-300 group"
+              >
+                <Image
+                  src={relatedProduct.image}
+                  alt={relatedProduct.name}
+                  width={200}
+                  height={200}
+                  className="w-full h-48 object-cover rounded-lg mb-4 group-hover:scale-105 transition-transform duration-300"
+                />
+                <h3 className="text-primary font-semibold mb-2 truncate transition-colors duration-300">
+                  {relatedProduct.name}
+                </h3>
+                <p className="text-gold font-bold">
+                  ₹{relatedProduct.price.toLocaleString()}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
