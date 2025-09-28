@@ -146,7 +146,7 @@ function ProfileDropdown({ open, onClose, user, signOut }) {
           <div className="px-6 py-4 border-t border-yellow-200 dark:border-yellow-600/30 bg-secondary">
             <div className="text-center">
               <p className="text-xs text-secondary">
-                Jewelify © 2024
+                Auraza © 2024
               </p>
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-yellow-500 rounded-xl animate-pulse"></div>
-            <div className="text-2xl font-extrabold text-yellow-500">Jewelify</div>
+            <div className="text-2xl font-extrabold text-yellow-500">Auraza</div>
           </div>
           <div className="w-6 h-6 bg-secondary rounded animate-pulse"></div>
         </div>
@@ -228,7 +228,7 @@ export default function Navbar() {
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
               </div>
               <span className="text-2xl font-extrabold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent group-hover:from-yellow-300 group-hover:via-yellow-400 group-hover:to-yellow-500 transition-all duration-300">
-                Jewelify
+                Auraza
               </span>
             </Link>
           </motion.div>

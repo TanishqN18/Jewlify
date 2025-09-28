@@ -13,7 +13,7 @@ export default function Hero() {
   ];
 
   return (
-    <section className="relative bg-primary py-16 lg:py-20 transition-all duration-500 overflow-hidden">
+    <section className="relative bg-primary pt-8 pb-16 lg:pt-10 lg:pb-20 transition-all duration-500 overflow-hidden">
       
       {/* Background Decorative Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -22,14 +22,14 @@ export default function Hero() {
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center min-h-[80vh]">
 
           {/* Left Content */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="space-y-8"
+            className="space-y-8 lg:pr-8"
           >
             {/* Badge */}
             <motion.div
@@ -148,24 +148,24 @@ export default function Hero() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="flex justify-center lg:justify-end"
+            className="flex justify-center lg:justify-center items-center h-full"
           >
             <motion.div
               whileHover={{ scale: 1.02, rotate: 1 }}
               transition={{ duration: 0.3 }}
-              className="relative"
+              className="relative w-full max-w-lg"
             >
               {/* Decorative rings around image */}
               <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 rounded-3xl rotate-3 scale-105 opacity-20 blur-sm" />
               <div className="absolute inset-0 bg-gradient-to-l from-yellow-300 via-yellow-400 to-yellow-500 rounded-3xl -rotate-2 scale-110 opacity-10 blur-md" />
               
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-primary p-2 transition-all duration-300">
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-primary p-3 transition-all duration-300">
                 <Image
                   src="/Images/Main.jpg"
                   alt="Elegant Jewellery Display"
-                  width={500}
-                  height={500}
-                  className="object-cover rounded-2xl"
+                  width={600}
+                  height={600}
+                  className="object-cover rounded-2xl w-full h-auto"
                   priority
                 />
               </div>

@@ -1,7 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server';
 import dbConnect from '../../../lib/dbConnect';
 import User from '../../../models/Users';
-import Order from '../../../models/Order';
+import Order from '../../../models/order';
 import ClientDashboard from '../../../components/account/ClientDashboard';
 
 export default async function AccountPage() {

@@ -17,21 +17,13 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <ClerkProvider>
+      {/* Suppress hydration warnings globally (recommended quick fix) */}
       <html lang="en" suppressHydrationWarning>
         <head>
-          <Script
-            src="https://checkout.razorpay.com/v1/checkout.js"
-            strategy="beforeInteractive"
-          />
+          <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="beforeInteractive" />
         </head>
         <body>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem={true}
-            disableTransitionOnChange={false}
-            storageKey="theme"
-          >
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="theme">
             <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
               <ClerkCartSyncProvider>
                 <SyncUserWithDB />

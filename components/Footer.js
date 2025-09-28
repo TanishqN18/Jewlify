@@ -49,7 +49,7 @@ export default function Footer() {
                   <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 rounded-xl blur-md" />
                 </div>
                 <h3 className="text-xl font-extrabold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent">
-                  Jewelify
+                  Auraza
                 </h3>
               </div>
               <p className="text-secondary text-[15px] leading-relaxed max-w-xs">
@@ -61,7 +61,7 @@ export default function Footer() {
                   <div className="p-1 rounded-md bg-secondary">
                     <FaEnvelope className="text-yellow-600 dark:text-yellow-400 text-xs" />
                   </div>
-                  <span className="truncate">hello@jewelify.com</span>
+                  <span className="truncate">hello@auraza.com</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="p-1 rounded-md bg-secondary">
@@ -181,7 +181,7 @@ export default function Footer() {
           <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3">
             <div className="flex flex-col md:flex-row justify-between items-center gap-2">
               <div className="flex items-center gap-1 text-secondary text-xs">
-                <span>© {currentYear} Jewelify. Made with</span>
+                <span>© {currentYear} Auraza. Made with</span>
                 <FaHeart className="text-red-500 text-xs animate-pulse" />
                 <span>All rights reserved.</span>
               </div>

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth, SignIn } from '@clerk/nextjs';
 import useCartStore from '../../../components/store/cartStore';
 import CheckoutProgress from '../../../components/checkout/CheckoutProgress';
 import CartReview from '../../../components/checkout/CartReview';
@@ -18,30 +18,23 @@ import { AnimatePresence } from 'framer-motion';
 export default function CheckoutPage() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCartStore();
   const { user, isLoaded } = useUser();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const router = useRouter();
-  
-  const { 
-    step, 
-    setStep, 
-    shippingInfo, 
-    setShippingInfo, 
-    paymentInfo, 
-    setPaymentInfo,
-    promoCode,
-    setPromoCode,
-    discount,
-    setDiscount
+
+  const {
+    step, setStep,
+    shippingInfo, setShippingInfo,
+    paymentInfo, setPaymentInfo,
+    promoCode, setPromoCode,
+    discount, setDiscount
   } = useCheckoutSteps();
 
   const { subtotal, discountAmount, shipping, tax, total } = useOrderCalculations(cart, discount);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Ensure component is mounted before rendering
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
   // Auto-fill user info if available
   useEffect(() => {
@@ -57,38 +50,29 @@ export default function CheckoutPage() {
 
   // Redirect if cart is empty
   useEffect(() => {
-    if (cart.length === 0) {
-      router.push('/shop');
-    }
+    if (cart.length === 0) router.push('/shop');
   }, [cart.length, router]);
 
   const handleQuantityChange = (id, newQuantity) => {
-    if (newQuantity < 1) {
-      removeFromCart(id);
-    } else {
-      updateQuantity(id, newQuantity);
-    }
+    if (newQuantity < 1) removeFromCart(id);
+    else updateQuantity(id, newQuantity);
   };
 
   const handlePayment = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
-      // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Clear cart and redirect to success page
       clearCart();
       router.push('/order-success');
-    } catch (error) {
+    } catch {
       alert('Payment failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Don't render until mounted to avoid hydration mismatch
+  // Avoid hydration mismatch
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-primary transition-all duration-300">
@@ -97,25 +81,32 @@ export default function CheckoutPage() {
     );
   }
 
+  // If cart empty
   if (cart.length === 0) {
     return <EmptyCart onContinueShopping={() => router.push('/shop')} />;
   }
 
+  // Gate: show Sign In when not authenticated
+  if (authLoaded && !isSignedIn) {
+    return (
+      <div className="min-h-screen bg-primary flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-secondary/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+          <h2 className="text-xl font-semibold mb-4 text-primary">Sign in to continue to checkout</h2>
+          <SignIn routing="hash" redirectUrl="/checkout" />
+        </div>
+      </div>
+    );
+  }
+
+  // Authenticated checkout UI
   return (
     <div className="min-h-screen bg-primary transition-all duration-500">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Progress Steps */}
         <CheckoutProgress currentStep={step} />
-        
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 mt-8">
-          
-          {/* Main Content */}
           <div className="xl:col-span-3">
             <div className="bg-secondary/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 transition-all duration-300">
               <AnimatePresence mode="wait">
-                
-                {/* Step 1: Cart Review */}
                 {step === 1 && (
                   <CartReview
                     cart={cart}
@@ -124,8 +115,6 @@ export default function CheckoutPage() {
                     onNext={() => setStep(2)}
                   />
                 )}
-
-                {/* Step 2: Shipping Information */}
                 {step === 2 && (
                   <ShippingForm
                     shippingInfo={shippingInfo}
@@ -134,8 +123,6 @@ export default function CheckoutPage() {
                     onNext={() => setStep(3)}
                   />
                 )}
-
-                {/* Step 3: Payment */}
                 {step === 3 && (
                   <PaymentForm
                     paymentInfo={paymentInfo}
@@ -150,7 +137,6 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Order Summary Sidebar */}
           <div className="xl:col-span-1">
             <OrderSummary
               cart={cart}

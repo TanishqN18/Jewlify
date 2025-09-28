@@ -1,139 +1,199 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import ProductCard from '../ProductCard';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
+
+const bgByKey = {
+  all: '/Images/All.png',
+  necklaces: '/Images/Necklaces.png',
+  rings: '/Images/Ring.png',
+  earrings: '/Images/Earrings.png',
+  bracelets: '/Images/Bracelet.png',
+};
 
 export default function FeaturedProducts({ products = [] }) {
-  const [featured, setFeatured] = useState([]);
+  const base = [
+    { key: 'Necklaces', emoji: '✨', headline: 'Exquisite Necklaces', sub: 'Handcrafted luxury, designed for timeless elegance' },
+    { key: 'Rings', emoji: '💍', headline: 'Brilliant Rings', sub: 'Symbol of eternal love, crafted to perfection' },
+    { key: 'Earrings', emoji: '💎', headline: 'Stunning Earrings', sub: 'Illuminate your beauty with sparkling elegance' },
+    { key: 'Bracelets', emoji: '✨', headline: 'Elegant Bracelets', sub: 'Grace your wrist with sophisticated charm' },
+  ];
 
+  const tabs = ['All', ...base.map((b) => b.key)];
+  const [activeIndex, setActiveIndex] = useState(0);
+  const totalSlides = tabs.length;
+  const [isPlaying, setIsPlaying] = useState(true);
+
+  const nextSlide = useCallback(
+    () => setActiveIndex((i) => (i + 1) % totalSlides),
+    [totalSlides]
+  );
+  const prevSlide = useCallback(
+    () => setActiveIndex((i) => (i - 1 + totalSlides) % totalSlides),
+    [totalSlides]
+  );
+
+  // More reliable autoplay: single timeout that resets each change
+  const timerRef = useRef(null);
   useEffect(() => {
-    // Mark top 4 products as featured
-    if (products.length > 0) {
-      setFeatured(products.slice(0, 4));
+    if (!isPlaying) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = null;
+      return;
     }
-  }, [products]);
+    timerRef.current = setTimeout(() => {
+      setActiveIndex((i) => (i + 1) % totalSlides);
+    }, 5000);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = null;
+    };
+  }, [isPlaying, activeIndex, totalSlides]);
 
-  if (featured.length === 0) {
-    return (
-      <section className="py-16 px-4 bg-secondary transition-all duration-300">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="animate-pulse">
-            <div className="h-8 bg-secondary rounded-lg w-64 mx-auto mb-8 opacity-50"></div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-80 bg-secondary rounded-2xl opacity-50"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
+  // Pause autoplay when tab is hidden; resume when visible
+  useEffect(() => {
+    const onVis = () => {
+      const visible = document.visibilityState === 'visible';
+      // Clear any pending timer when switching state
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      // Only play when visible
+      if (visible) {
+        setIsPlaying(true);
+      } else {
+        setIsPlaying(false);
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
+  const handlePrev = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    prevSlide();
+  };
+  const handleNext = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    nextSlide();
+  };
+
+  const getSlideImage = (key) => {
+    const k = (key || '').toLowerCase();
+    return bgByKey[k] || '/Images/fallback.png';
+  };
 
   return (
-    <section className="py-16 px-4 bg-secondary transition-all duration-300 relative overflow-hidden">
-      
-      {/* Background Decorative Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-yellow-200/20 dark:bg-yellow-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-40 h-40 bg-yellow-300/20 dark:bg-yellow-500/10 rounded-full blur-3xl" />
+    <section
+      id="luxury-slideshow"
+      className="relative w-full bg-primary h-[340px] sm:h-[400px] md:h-[460px] lg:h-[500px] overflow-hidden"
+      onMouseEnter={() => setIsPlaying(false)}
+      onMouseLeave={() => setIsPlaying(true)}
+    >
+      {/* Slides */}
+      <AnimatePresence mode="wait">
+        {tabs.map((t, i) => {
+          const meta = base.find((b) => b.key === t);
+          const image = getSlideImage(t);
+
+          return (
+            i === activeIndex && (
+              <motion.div
+                key={t}
+                className="absolute inset-0"
+                initial={{ opacity: 0, x: 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ duration: 0.6, ease: 'easeInOut' }}
+              >
+                <div className="absolute inset-0">
+                  <Image
+                    src={image}
+                    alt={meta?.headline || t}
+                    fill
+                    priority={t === 'All'}
+                    sizes="100vw"
+                    className="object-cover"
+                    quality={100}
+                    unoptimized
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-black/10 to-transparent" />
+
+                <div className="absolute inset-0 flex items-center justify-center px-4">
+                  <div className="max-w-2xl w-full text-center rounded-2xl border border-yellow-500/30 bg-black/10 backdrop-blur-sm p-6 sm:p-8 shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
+                    {meta?.emoji && <div className="mb-2 sm:mb-3 text-xl text-white">{meta.emoji}</div>}
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight mb-3 text-white">
+                      {meta?.headline || t}
+                    </h2>
+                    <p className="text-sm sm:text-base md:text-lg mb-6 text-white/85">
+                      {meta?.sub || 'Browse premium picks by category'}
+                    </p>
+                    <Link
+                      href={
+                        t === 'All'
+                          ? '/shop'
+                          : {
+                              pathname: '/shop',
+                              // Send both original and slug to maximize compatibility with your shop filter
+                              query: { category: t, slug: t.toLowerCase() },
+                            }
+                      }
+                      prefetch
+                      className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-semibold shadow-lg hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 transition"
+                    >
+                      Shop Now
+                    </Link>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          );
+        })}
+      </AnimatePresence>
+
+      {/* Navigation Arrows */}
+      <button
+        onClick={handlePrev}
+        className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/30 border border-white/20 text-white hover:bg-black/40 transition"
+        aria-label="Previous slide"
+      >
+        ‹
+      </button>
+      <button
+        onClick={handleNext}
+        className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/30 border border-white/20 text-white hover:bg-black/40 transition"
+        aria-label="Next slide"
+      >
+        ›
+      </button>
+
+      {/* Dots */}
+      <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-2 sm:gap-3">
+        {tabs.map((label, i) => (
+          <button
+            key={label}
+            onClick={() => setActiveIndex(i)}
+            className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-white/30 transition ${i === activeIndex ? 'bg-yellow-500' : 'bg-white/40'}`}
+            aria-label={`Go to ${label}`}
+          />
+        ))}
       </div>
 
-      <div className="max-w-7xl mx-auto relative">
-        
-        {/* Section Header */}
+      {/* Progress Bar */}
+      <div className="absolute bottom-0 left-0 w-full h-1 bg-white/30">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="text-center mb-12"
-        >
-          <motion.h2 className="text-3xl md:text-4xl font-bold mb-4">
-            <span className="text-primary">✨ Featured </span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 via-yellow-600 to-yellow-700">
-              Jewellery
-            </span>
-          </motion.h2>
-          
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            viewport={{ once: true }}
-            className="text-secondary max-w-2xl mx-auto text-lg"
-          >
-            Handpicked premium pieces that showcase exceptional craftsmanship and timeless elegance
-          </motion.p>
-        </motion.div>
-
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12">
-          {featured.map((item, index) => (
-            <motion.div
-              key={item._id || item.id}
-              initial={{ opacity: 0, y: 30, scale: 0.9 }}
-              whileInView={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ 
-                duration: 0.5, 
-                delay: index * 0.1,
-                type: "spring",
-                stiffness: 100
-              }}
-              viewport={{ once: true }}
-              whileHover={{ y: -5 }}
-            >
-              <ProductCard 
-                product={item} 
-                showBadge={index === 0} 
-              />
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Stats Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          viewport={{ once: true }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12"
-        >
-          {(
-            [
-              { number: '10K+', label: 'Happy Customers', icon: '😊' },
-              { number: '500+', label: 'Premium Designs', icon: '💎' },
-              { number: '99%', label: 'Satisfaction Rate', icon: '⭐' },
-              { number: '24/7', label: 'Customer Support', icon: '🛟' }
-            ]
-          ).map((stat, index) => (
-            <motion.div
-              key={index}
-              whileHover={{ scale: 1.05 }}
-              className="text-center p-6 bg-primary backdrop-blur-sm rounded-2xl border border-yellow-200 dark:border-yellow-600/30 shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <div className="text-3xl mb-2">{stat.icon}</div>
-              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mb-1">
-                {stat.number}
-              </div>
-              <div className="text-sm text-secondary font-medium">
-                {stat.label}
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* CTA Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          viewport={{ once: true }}
-          className="text-center"
-        >
-        </motion.div>
+          key={activeIndex}
+          initial={{ width: '0%' }}
+          animate={{ width: '100%' }}
+          transition={{ duration: 5, ease: 'linear' }}
+          className="h-full bg-yellow-500/90"
+        />
       </div>
     </section>
   );
