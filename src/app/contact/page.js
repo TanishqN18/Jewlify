@@ -84,7 +84,7 @@ export default function ContactPage() {
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            Have questions about our jewelry or need assistance? We're here to help! Reach out to us and we'll respond as soon as possible.
+            Have questions about our jewelry or need assistance? We are here to help! Reach out to us and we will respond as soon as possible.
           </motion.p>
         </div>
 
@@ -241,7 +241,7 @@ export default function ContactPage() {
           className="mt-16 text-center p-8 bg-gradient-to-r from-yellow-500/10 to-yellow-600/5 border border-accent rounded-2xl"
         >
           <div className="text-4xl mb-4">⏰</div>
-          <h3 className="text-2xl font-bold text-primary mb-4">We're Here to Help</h3>
+          <h3 className="text-2xl font-bold text-primary mb-4">We are Here to Help</h3>
           <p className="text-lg text-secondary">
             We typically respond to all inquiries within 24-48 hours. For urgent matters, please call us directly! ✨
           </p>

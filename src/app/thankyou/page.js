@@ -238,7 +238,7 @@ export default function ThankYouPage() {
               <div className="text-3xl mb-4">💎</div>
               <h3 className="text-xl font-bold text-primary mb-4">Quality Promise</h3>
               <p className="text-secondary mb-6">
-                Every piece comes with our 30-day satisfaction guarantee. If you're not completely happy, we'll make it right.
+                Every piece comes with our 30-day satisfaction guarantee. If you are not completely happy, we will make it right.
               </p>
               <Link
                 href="/terms"

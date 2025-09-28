@@ -143,7 +143,7 @@ export default function TermsPage() {
                       </p>
                     ) : (
                       <div className="bg-secondary rounded-lg p-4">
-                        <span className="font-bold text-yellow-600">"{item.term}"</span>
+                        <span className="font-bold text-yellow-600">&quot;{item.term}&quot;</span>
                         <span className="text-primary"> {item.definition}</span>
                       </div>
                     )}
@@ -224,7 +224,7 @@ export default function TermsPage() {
           <div className="text-4xl mb-6">❓</div>
           <h3 className="text-3xl font-bold text-primary mb-6">Questions About Our Terms?</h3>
           <p className="text-xl text-secondary mb-8 max-w-2xl mx-auto">
-            If you have any questions about these Terms & Conditions, please don't hesitate to contact us. We're here to help clarify anything you need.
+            If you have any questions about these Terms & Conditions, please do not hesitate to contact us. We are here to help clarify anything you need.
           </p>
           <motion.a
             href="/contact"

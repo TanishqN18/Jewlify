@@ -86,13 +86,13 @@ export default function AboutPage() {
               <h2 className="text-4xl font-bold text-primary">Our Story</h2>
               <div className="space-y-4 text-lg text-secondary leading-relaxed">
                 <p>
-                  At <span className="font-bold text-yellow-600">Jewelify</span>, we believe that jewelry is more than just an accessory—it's a reflection of your personality, a celebration of your milestones, and a testament to your unique style.
+                  At <span className="font-bold text-yellow-600">Jewelify</span>, we believe that jewelry is more than just an accessory—it is a reflection of your personality, a celebration of your milestones, and a testament to your unique style.
                 </p>
                 <p>
-                  Founded with a passion for exceptional craftsmanship and customer satisfaction, we've curated a collection that blends traditional artistry with contemporary design. Every piece tells a story, and we're honored to be part of yours.
+                  Founded with a passion for exceptional craftsmanship and customer satisfaction, we have curated a collection that blends traditional artistry with contemporary design. Every piece tells a story, and we are honored to be part of yours.
                 </p>
                 <p>
-                  From sparkling engagement rings to elegant everyday pieces, our jewelry is designed to accompany you through life's most precious moments, creating memories that last forever.
+                  From sparkling engagement rings to elegant everyday pieces, our jewelry is designed to accompany you through life is most precious moments, creating memories that last forever.
                 </p>
               </div>
             </div>
@@ -204,7 +204,7 @@ export default function AboutPage() {
             Thank You for Choosing Jewelify
           </h3>
           <p className="text-xl text-secondary max-w-2xl mx-auto">
-            Your trust and support inspire us every day to create beautiful jewelry and provide exceptional service. Here's to many more sparkling moments together! ✨
+            Your trust and support inspire us every day to create beautiful jewelry and provide exceptional service. Here is to many more sparkling moments together! ✨
           </p>
         </motion.div>
       </motion.div>

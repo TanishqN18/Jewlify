@@ -68,7 +68,7 @@ export default function CareersPage() {
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            At Jewelify, we're building the future of jewelry retail. Join our passionate team of creators, innovators, and craftspeople who are redefining luxury through technology and artistry.
+            At Auraza, we are building the future of jewelry retail. Join our passionate team of creators, innovators, and craftspeople who are redefining luxury through technology and artistry.
           </motion.p>
         </div>
 
@@ -189,7 +189,7 @@ export default function CareersPage() {
           <div className="max-w-2xl mx-auto">
             <h3 className="text-3xl font-bold text-primary mb-6">Ready to Sparkle With Us?</h3>
             <p className="text-xl text-secondary mb-8 leading-relaxed">
-              Don't see a position that fits? We're always interested in hearing from talented individuals who want to make a difference in the jewelry industry.
+              Do not see a position that fits? We are always interested in hearing from talented individuals who want to make a difference in the jewelry industry.
             </p>
             <motion.a
               href="mailto:careers@jewelify.com"
