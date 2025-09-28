@@ -1,6 +1,6 @@
 import { getAuth } from "@clerk/nextjs/server";
 import dbConnect from "../../../../lib/dbConnect";
-import Order from "../../../../models/Order";
+import Order from "../../../../models/order";
 import User from "../../../../models/Users";
 
 export async function POST(req) {
