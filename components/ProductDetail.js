@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPinterest, FaWhatsapp, FaTwitter } from 'react-icons/fa';
 import useCartStore from '../components/store/cartStore';
@@ -47,16 +47,6 @@ export default function ProductDetailPage({ product, relatedProducts }) {
   const [activeTab, setActiveTab] = useState('description');
   const { addToCart } = useCartStore();
 
-  // Images: use product.images if provided, otherwise fallback to single image
-  const images = (Array.isArray(product?.images) && product.images.length > 0)
-    ? product.images
-    : [product?.image].filter(Boolean);
-
-  const [current, setCurrent] = useState(0);
-  const containerRef = useRef(null);
-  const [isZoom, setIsZoom] = useState(false);
-  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
-
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   const handleAddToCart = () => {
@@ -68,133 +58,20 @@ export default function ProductDetailPage({ product, relatedProducts }) {
     window.location.href = '/checkout';
   };
 
-  const goNext = () => setCurrent((i) => (i + 1) % images.length);
-  const goPrev = () => setCurrent((i) => (i - 1 + images.length) % images.length);
-
-  const onMouseMove = (e) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setZoomOrigin({ x, y });
-  };
-
   return (
     <div className="bg-primary min-h-screen transition-all duration-300">
       {/* Product Detail Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Product Image Gallery */}
-          <div className="bg-secondary rounded-lg p-4 transition-all duration-300">
-            <div
-              ref={containerRef}
-              className="relative aspect-square w-full overflow-hidden rounded-lg group"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowRight') goNext();
-                if (e.key === 'ArrowLeft') goPrev();
-              }}
-              onMouseEnter={() => setIsZoom(true)}
-              onMouseLeave={() => setIsZoom(false)}
-              onMouseMove={onMouseMove}
-            >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={images[current]}
-                  className="absolute inset-0"
-                  initial={{ opacity: 0, scale: 0.98, x: 30 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.98, x: -30 }}
-                  transition={{ duration: 0.4, ease: 'easeInOut' }}
-                >
-                  <div className="absolute inset-0">
-                    <Image
-                      src={images[current]}
-                      alt={product?.name || 'Product image'}
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 50vw"
-                      className="object-contain"
-                      priority={current === 0}
-                      quality={100}
-                      unoptimized
-                    />
-                  </div>
-
-                  {/* Subtle zoom on hover following cursor */}
-                  <motion.div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
-                    }}
-                    animate={{ scale: isZoom ? 1.06 : 1 }}
-                    transition={{ duration: 0.25 }}
-                  />
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Left/Right controls */}
-              {images.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={goPrev}
-                    aria-label="Previous image"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/30 text-white hover:bg-black/40"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    type="button"
-                    onClick={goNext}
-                    aria-label="Next image"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/30 text-white hover:bg-black/40"
-                  >
-                    ›
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Dots indicator */}
-            {images.length > 1 && (
-              <div className="mt-4 flex items-center justify-center gap-2">
-                {images.map((_, i) => (
-                  <button
-                    key={i}
-                    aria-label={`Go to image ${i + 1}`}
-                    onClick={() => setCurrent(i)}
-                    className={`h-2.5 rounded-full transition-all ${
-                      i === current ? 'w-6 bg-gold' : 'w-2.5 bg-white/40'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Optional thumbnails (click to jump) */}
-            {images.length > 1 && (
-              <div className="mt-4 grid grid-cols-4 gap-3">
-                {images.map((src, i) => (
-                  <button
-                    key={src + i}
-                    onClick={() => setCurrent(i)}
-                    className={`relative aspect-square rounded-lg overflow-hidden border ${
-                      i === current ? 'border-gold' : 'border-white/10'
-                    }`}
-                  >
-                    <Image
-                      src={src}
-                      alt={`Thumbnail ${i + 1}`}
-                      fill
-                      sizes="25vw"
-                      className="object-cover transition-transform duration-300 hover:scale-105"
-                      quality={90}
-                      unoptimized
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
+          {/* Product Image */}
+          <div className="bg-secondary rounded-lg p-6 transition-all duration-300">
+            <Image
+              src={product.image}
+              alt={product.name}
+              width={500}
+              height={500}
+              className="w-full h-auto rounded-lg"
+            />
           </div>
 
           {/* Product Info */}
@@ -238,14 +115,14 @@ export default function ProductDetailPage({ product, relatedProducts }) {
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              <button
+              <button 
                 onClick={handleAddToCart}
                 className="w-full bg-gold hover:bg-yellow-600 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
               >
                 Add to Cart - ₹{(product.price * quantity).toLocaleString()}
               </button>
-
-              <button
+              
+              <button 
                 onClick={handleBuyNow}
                 className="w-full bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
               >
