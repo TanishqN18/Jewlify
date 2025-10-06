@@ -195,7 +195,7 @@ export default function AdminDashboard() {
                 key={index}
                 className={`flex items-center space-x-3 p-4 rounded-lg font-medium transition-all duration-300 hover:scale-105 ${
                   action.primary
-                    ? 'bg-gradient-to-r from-gold to-yellow-600 text-primary hover:shadow-lg'
+                    ? 'bg-gradient-to-r from-yellow-350 to-yellow-600 text-primary hover:shadow-lg'
                     : 'bg-primary/20 text-primary border border-white/10 hover:bg-primary/30'
                 }`}
               >

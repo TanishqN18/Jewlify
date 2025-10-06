@@ -53,20 +53,40 @@ export default function CheckoutPage() {
     if (cart.length === 0) router.push('/shop');
   }, [cart.length, router]);
 
-  const handleQuantityChange = (id, newQuantity) => {
-    if (newQuantity < 1) removeFromCart(id);
-    else updateQuantity(id, newQuantity);
+  // Fixed: Use cartKey instead of id
+  const handleQuantityChange = (cartKey, newQuantity) => {
+    if (newQuantity < 1) {
+      removeFromCart(cartKey);
+    } else {
+      updateQuantity(cartKey, newQuantity);
+    }
+  };
+
+  // Fixed: Use cartKey for remove
+  const handleRemoveItem = (cartKey) => {
+    removeFromCart(cartKey);
   };
 
   const handlePayment = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      clearCart();
-      router.push('/order-success');
-    } catch {
-      alert('Payment failed. Please try again.');
+      // Create order using the cart store method
+      const result = await useCartStore.getState().createOrder(
+        shippingInfo,
+        shippingInfo, // Use same for billing unless you have separate billing form
+        paymentInfo
+      );
+
+      if (result.success) {
+        clearCart();
+        router.push(`/order-success?orderId=${result.orderId}`);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert(`Payment failed: ${error.message}. Please try again.`);
     } finally {
       setIsLoading(false);
     }
@@ -111,7 +131,7 @@ export default function CheckoutPage() {
                   <CartReview
                     cart={cart}
                     onQuantityChange={handleQuantityChange}
-                    onRemove={removeFromCart}
+                    onRemove={handleRemoveItem}
                     onNext={() => setStep(2)}
                   />
                 )}

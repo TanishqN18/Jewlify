@@ -5,11 +5,12 @@ import useCartStore from './store/cartStore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FaPenFancy, FaRulerCombined, FaCommentDots } from 'react-icons/fa';
 
 export default function CartDrawer({ isOpen, onClose }) {
-  const { cart, removeFromCart, updateQuantity, clearCart } = useCartStore();
+  const { cart, removeFromCart, updateQuantity, clearCart, getCartTotal } = useCartStore();
 
-  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const total = getCartTotal();
 
   // Handle escape key and body scroll
   useEffect(() => {
@@ -28,12 +29,22 @@ export default function CartDrawer({ isOpen, onClose }) {
     };
   }, [isOpen, onClose]);
 
-  const handleQuantityChange = (id, newQuantity) => {
+  const handleQuantityChange = (cartKey, newQuantity) => {
     if (newQuantity < 1) {
-      removeFromCart(id);
+      removeFromCart(cartKey);
     } else {
-      updateQuantity(id, newQuantity);
+      updateQuantity(cartKey, newQuantity);
     }
+  };
+
+  const getDisplayPrice = (item) => {
+    if (item.priceType === "fixed") {
+      return item.fixedPrice || item.price || 0;
+    } else if (item.priceType === "weight-based") {
+      const goldRate = 5000; // You'd fetch current rate
+      return (item.weight || 0) * goldRate;
+    }
+    return item.price || 0;
   };
 
   return (
@@ -105,78 +116,105 @@ export default function CartDrawer({ isOpen, onClose }) {
               ) : (
                 <div className="space-y-4">
                   <AnimatePresence>
-                    {cart.map((product, index) => (
-                      <motion.div
-                        key={product._id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="flex gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-secondary hover:shadow-md transition-all duration-300"
-                      >
-                        {/* Product Image */}
-                        <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-primary">
-                          <Image
-                            src={product.image}
-                            alt={product.name}
-                            width={80}
-                            height={80}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
+                    {cart.map((product, index) => {
+                      const displayPrice = getDisplayPrice(product);
+                      const hasCustomization = product.customization && (
+                        product.customization.engraving || 
+                        product.customization.size || 
+                        product.customization.specialInstructions
+                      );
 
-                        {/* Product Details */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-between">
-                          <div>
-                            <Link 
-                              href={`/product/${product._id}`}
-                              onClick={onClose}
-                              className="font-medium text-base text-primary hover:text-yellow-500 transition-colors duration-300 block truncate"
-                            >
-                              {product.name}
-                            </Link>
-                            <p className="text-sm text-secondary transition-colors duration-300">
-                              ₹{product.price.toLocaleString()} each
-                            </p>
+                      return (
+                        <motion.div
+                          key={product.cartKey} // Use cartKey instead of _id
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ duration: 0.3, delay: index * 0.05 }}
+                          className="flex gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-secondary hover:shadow-md transition-all duration-300"
+                        >
+                          {/* Product Image */}
+                          <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-primary">
+                            <Image
+                              src={Array.isArray(product.image) ? product.image[0] : product.image}
+                              alt={product.name}
+                              width={80}
+                              height={80}
+                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                            />
                           </div>
 
-                          {/* Quantity and Price */}
-                          <div className="flex items-center justify-between mt-2">
-                            {/* Quantity Controls */}
-                            <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded bg-primary transition-all duration-300">
-                              <button
-                                onClick={() => handleQuantityChange(product._id, product.quantity - 1)}
-                                className="text-primary hover:text-red-500 transition-colors duration-300 w-8 h-8 flex items-center justify-center text-sm"
+                          {/* Product Details */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                              <Link 
+                                href={`/product/${product._id}`}
+                                onClick={onClose}
+                                className="font-medium text-base text-primary hover:text-yellow-500 transition-colors duration-300 block truncate"
                               >
-                                −
-                              </button>
-                              <span className="px-3 text-primary font-medium transition-colors duration-300 min-w-[24px] text-center text-sm">
-                                {product.quantity}
-                              </span>
-                              <button
-                                onClick={() => handleQuantityChange(product._id, product.quantity + 1)}
-                                className="text-primary hover:text-green-500 transition-colors duration-300 w-8 h-8 flex items-center justify-center text-sm"
-                              >
-                                +
-                              </button>
-                            </div>
-
-                            {/* Price and Remove */}
-                            <div className="text-right">
-                              <p className="text-base font-semibold text-yellow-600 dark:text-yellow-400">
-                                ₹{(product.price * product.quantity).toLocaleString()}
+                                {product.name}
+                              </Link>
+                              <p className="text-sm text-secondary transition-colors duration-300">
+                                ₹{displayPrice.toLocaleString()} each
                               </p>
-                              <button
-                                onClick={() => removeFromCart(product._id)}
-                                className="text-xs text-red-600 hover:text-red-500 transition-colors duration-300 underline"
-                              >
-                                Remove
-                              </button>
+
+                              {/* Show customization in drawer */}
+                              {hasCustomization && (
+                                <div className="mt-1 text-xs text-secondary">
+                                  {product.customization.engraving && (
+                                    <div className="flex items-center gap-1">
+                                      <FaPenFancy className="text-[8px]" />
+                                      <span>&quot;{product.customization.engraving}&quot;</span>
+                                    </div>
+                                  )}
+                                  {product.customization.size && (
+                                    <div className="flex items-center gap-1">
+                                      <FaRulerCombined className="text-[8px]" />
+                                      <span>Size: {product.customization.size}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Quantity and Price */}
+                            <div className="flex items-center justify-between mt-2">
+                              {/* Quantity Controls */}
+                              <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded bg-primary transition-all duration-300">
+                                <button
+                                  onClick={() => handleQuantityChange(product.cartKey, product.quantity - 1)}
+                                  className="text-primary hover:text-red-500 transition-colors duration-300 w-8 h-8 flex items-center justify-center text-sm"
+                                >
+                                  −
+                                </button>
+                                <span className="px-3 text-primary font-medium transition-colors duration-300 min-w-[24px] text-center text-sm">
+                                  {product.quantity}
+                                </span>
+                                <button
+                                  onClick={() => handleQuantityChange(product.cartKey, product.quantity + 1)}
+                                  className="text-primary hover:text-green-500 transition-colors duration-300 w-8 h-8 flex items-center justify-center text-sm"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              {/* Price and Remove */}
+                              <div className="text-right">
+                                <p className="text-base font-semibold text-yellow-600 dark:text-yellow-400">
+                                  ₹{(displayPrice * product.quantity).toLocaleString()}
+                                </p>
+                                <button
+                                  onClick={() => removeFromCart(product.cartKey)}
+                                  className="text-xs text-red-600 hover:text-red-500 transition-colors duration-300 underline"
+                                >
+                                  Remove
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    ))}
+                        </motion.div>
+                      );
+                    })}
                   </AnimatePresence>
                 </div>
               )}

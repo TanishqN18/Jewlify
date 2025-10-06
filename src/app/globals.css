@@ -76,3 +76,79 @@ a {
 .dark {
   color-scheme: dark;
 }
+
+/* === Light/Dark adaptive utility fixes === */
+/* Make light-mode borders visible where border-white/10 is used */
+.border-white\/5  { border-color: rgba(0,0,0,.05) !important; }
+.border-white\/10 { border-color: rgba(0,0,0,.08) !important; }
+.border-white\/20 { border-color: rgba(0,0,0,.12) !important; }
+html.dark .border-white\/5  { border-color: rgba(255,255,255,.05) !important; }
+html.dark .border-white\/10 { border-color: rgba(255,255,255,.10) !important; }
+html.dark .border-white\/20 { border-color: rgba(255,255,255,.20) !important; }
+
+/* Provide background shades for bg-primary/xx (Tailwind doesn't emit these for your custom token) */
+.bg-primary\/5  { background-color: rgba(0,0,0,.02) !important; }
+.bg-primary\/10 { background-color: rgba(0,0,0,.04) !important; }
+.bg-primary\/15 { background-color: rgba(0,0,0,.06) !important; }
+.bg-primary\/20 { background-color: rgba(0,0,0,.08) !important; }
+.bg-primary\/30 { background-color: rgba(0,0,0,.12) !important; }
+html.dark .bg-primary\/5  { background-color: rgba(255,255,255,.03) !important; }
+html.dark .bg-primary\/10 { background-color: rgba(255,255,255,.06) !important; }
+html.dark .bg-primary\/15 { background-color: rgba(255,255,255,.09) !important; }
+html.dark .bg-primary\/20 { background-color: rgba(255,255,255,.12) !important; }
+html.dark .bg-primary\/30 { background-color: rgba(255,255,255,.18) !important; }
+
+/* Dropdowns, popovers, inputs readable in light mode */
+.bg-secondary,
+.bg-primary {
+  color: var(--text-primary);
+}
+
+.bg-secondary button,
+.bg-secondary input,
+.bg-secondary select,
+.bg-secondary textarea {
+  color: var(--text-primary);
+}
+
+/* Placeholder contrast */
+::placeholder {
+  color: color-mix(in srgb, var(--text-secondary) 85%, transparent);
+}
+html.dark ::placeholder {
+  color: color-mix(in srgb, var(--text-secondary) 85%, transparent);
+}
+
+/* Optional: a reusable panel class if you want to add it later */
+.dropdown-panel {
+  background-color: var(--bg-secondary);
+  border: 1px solid rgba(0,0,0,.08);
+  color: var(--text-primary);
+}
+html.dark .dropdown-panel {
+  border-color: rgba(255,255,255,.10);
+}
+
+/* Visible focus ring in both themes */
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.save-btn.saving {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

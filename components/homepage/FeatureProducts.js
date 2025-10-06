@@ -119,7 +119,6 @@ export default function FeaturedProducts({ products = [] }) {
                     priority={t === 'All'}
                     sizes="100vw"
                     className="object-cover"
-                    quality={100}
                     unoptimized
                   />
                 </div>

@@ -1,67 +1,178 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaEdit, FaTrash, FaPlus, FaSearch, FaFilter, FaEye, FaBoxes } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSearch, FaFilter, FaEye, FaBoxes, FaSpinner, FaCoins, FaGem } from 'react-icons/fa';
+
+// --- Custom Toast Function (copied from AddProduct module) ---
+function showToast(message, type = 'success') {
+  const isSuccess = type === 'success' || type === 'info';
+  const toast = document.createElement("div");
+  toast.className = `fixed top-4 right-4 bg-gradient-to-r ${
+    isSuccess ? 'from-emerald-500 to-green-600' : 'from-red-500 to-pink-600'
+  } text-white px-6 py-4 rounded-xl shadow-2xl z-50 transform transition-all duration-500 translate-x-full`;
+
+  toast.innerHTML = `
+    <div class="flex items-center space-x-3">
+      <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          ${
+            isSuccess
+              ? '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>'
+              : '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>'
+          }
+        </svg>
+      </div>
+      <span class="font-semibold">${message}</span>
+    </div>`;
+
+  document.body.appendChild(toast);
+  setTimeout(() => toast.classList.remove("translate-x-full"), 100);
+  setTimeout(() => {
+    toast.classList.add("translate-x-full");
+    setTimeout(() => document.body.removeChild(toast), 500);
+  }, isSuccess ? 3000 : 5000);
+}
+// ------------------------------------------------------------
 
 export default function ItemsPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState([]);
+  const [rates, setRates] = useState({ goldRate: 0, silverRate: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [pagination, setPagination] = useState({});
 
-  // Enhanced items data with more properties
-  const items = [
-    { id: 'DR001', name: 'Diamond Solitaire Ring', price: 85000, stock: 12, category: 'Rings', img: '/Images/product1.png', status: 'Available', sales: 45, lastUpdated: '2024-01-15' },
-    { id: 'GN002', name: 'Gold Necklace', price: 45000, stock: 8, category: 'Necklaces', img: '/Images/product2.png', status: 'Low Stock', sales: 32, lastUpdated: '2024-01-14' },
-    { id: 'PE003', name: 'Pearl Earrings', price: 25000, stock: 25, category: 'Earrings', img: '/Images/product3.png', status: 'Available', sales: 67, lastUpdated: '2024-01-13' },
-    { id: 'SB004', name: 'Silver Bracelet', price: 35000, stock: 0, category: 'Bracelets', img: '/Images/product4.png', status: 'Out of Stock', sales: 23, lastUpdated: '2024-01-12' },
-    { id: 'RR005', name: 'Ruby Ring', price: 95000, stock: 15, category: 'Rings', img: '/Images/product1.png', status: 'Available', sales: 18, lastUpdated: '2024-01-11' }
-  ];
+  // Fetch products and rates separately
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+
+      const params = new URLSearchParams({
+        search: searchTerm,
+        category: filterCategory,
+        status: filterStatus,
+        page: 1,
+        limit: 50
+      });
+
+      const [productsResponse, ratesResponse] = await Promise.all([
+        fetch(`/api/admin/products?${params}`),
+        fetch('/api/admin/rates')
+      ]);
+
+      const productsData = await productsResponse.json();
+      const ratesData = await ratesResponse.json();
+
+      if (productsData.success) {
+        setProducts(productsData.products);
+        setPagination(productsData.pagination);
+      }
+
+      if (ratesData.success) {
+        setRates(ratesData.rates);
+      }
+    } catch (error) {
+      showToast('Error fetching data. Please try again later.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, [searchTerm, filterCategory, filterStatus]);
 
   const getStatusColor = (status) => {
     switch(status) {
       case 'Available': return 'bg-green-500/20 text-green-400';
       case 'Low Stock': return 'bg-yellow-500/20 text-yellow-400';
       case 'Out of Stock': return 'bg-red-500/20 text-red-400';
+      case 'Discontinued': return 'bg-gray-500/20 text-gray-400';
       default: return 'bg-gray-500/20 text-gray-400';
     }
   };
 
+  const getPriceTypeIcon = (priceType, material) => {
+    if (priceType === 'weight-based') {
+      return material === 'Gold' ? <FaCoins className="text-yellow-400" /> : <FaCoins className="text-gray-400" />;
+    }
+    return <FaGem className="text-purple-400" />;
+  };
+
+  const handleDelete = async (id) => {
+    const confirmed = window.confirm('Are you sure you want to delete this product?');
+    if (confirmed) {
+      try {
+        const response = await fetch(`/api/admin/products/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          showToast('Product deleted successfully.', 'success');
+          fetchProducts(); // Refresh the list
+        } else {
+          showToast('Failed to delete product. Please try again.', 'error');
+        }
+      } catch (error) {
+        showToast('Error deleting product. Please try again later.', 'error');
+      }
+    } else {
+      showToast('Delete action was canceled.', 'info');
+    }
+  };
+
   const getTotalValue = () => {
-    return items.reduce((sum, item) => sum + (item.price * item.stock), 0);
+    return products.reduce((sum, item) => sum + (item.currentPrice * item.stock), 0);
   };
 
   const getTotalSales = () => {
-    return items.reduce((sum, item) => sum + item.sales, 0);
+    return products.reduce((sum, item) => sum + (item.salesCount || 0), 0);
   };
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
-    const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const getLowStockCount = () => {
+    return products.filter(item => item.status === 'Low Stock' || item.status === 'Out of Stock').length;
+  };
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-4xl text-gold mb-4 mx-auto" />
+          <p className="text-secondary">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col space-y-4 overflow-hidden">
-      {/* Header Section - Fixed */}
+      {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0">
         <div>
           <h3 className="text-xl font-bold text-primary">Products Management</h3>
           <p className="text-secondary text-sm">Manage your jewelry inventory and catalog</p>
+          <div className="mt-2 flex items-center space-x-4 text-xs">
+            <span className="text-yellow-400">Gold: ₹{rates.goldRate}/g</span>
+            <span className="text-gray-400">Silver: ₹{rates.silverRate}/g</span>
+          </div>
         </div>
-        <button className="bg-gradient-to-r from-gold to-yellow-600 text-primary px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center space-x-2 text-sm">
+        <button 
+          onClick={() => router.push('/admin/AddProduct')}
+          className="bg-gradient-to-r from-yellow-300 to-yellow-500 text-primary px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center space-x-2 text-sm"
+        >
           <FaPlus />
           <span>Add New Product</span>
         </button>
       </div>
 
-      {/* Stats Cards - Fixed */}
+      {/* Stats Cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 flex-shrink-0">
         <div className="bg-secondary border border-white/10 rounded-lg p-3 hover:shadow-lg hover:scale-105 transition-all duration-300">
           <h4 className="text-xs font-medium text-secondary">Total Products</h4>
-          <p className="text-lg font-bold text-gold">{items.length}</p>
+          <p className="text-lg font-bold text-gold">{products.length}</p>
           <p className="text-xs text-green-400">Active inventory</p>
         </div>
         <div className="bg-secondary border border-white/10 rounded-lg p-3 hover:shadow-lg hover:scale-105 transition-all duration-300">
@@ -76,12 +187,12 @@ export default function ItemsPage() {
         </div>
         <div className="bg-secondary border border-white/10 rounded-lg p-3 hover:shadow-lg hover:scale-105 transition-all duration-300">
           <h4 className="text-xs font-medium text-secondary">Low Stock Items</h4>
-          <p className="text-lg font-bold text-yellow-400">{items.filter(i => i.status === 'Low Stock' || i.status === 'Out of Stock').length}</p>
+          <p className="text-lg font-bold text-yellow-400">{getLowStockCount()}</p>
           <p className="text-xs text-yellow-400">Need attention</p>
         </div>
       </div>
 
-      {/* Search and Filter Section - Fixed */}
+      {/* Search and Filter Section */}
       <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
         <div className="relative flex-1">
           <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary text-sm" />
@@ -106,6 +217,7 @@ export default function ItemsPage() {
               <option value="Necklaces">Necklaces</option>
               <option value="Earrings">Earrings</option>
               <option value="Bracelets">Bracelets</option>
+              <option value="Pendants">Pendants</option>
             </select>
           </div>
           <select
@@ -117,47 +229,59 @@ export default function ItemsPage() {
             <option value="Available">Available</option>
             <option value="Low Stock">Low Stock</option>
             <option value="Out of Stock">Out of Stock</option>
+            <option value="Discontinued">Discontinued</option>
           </select>
         </div>
       </div>
 
-      {/* Products Table - Scrollable */}
+      {/* Products Table */}
       <div className="bg-secondary rounded-lg shadow-lg border border-white/10 flex-1 flex flex-col min-h-0">
         <div className="flex-1 overflow-auto">
-          <table className="w-full min-w-[1000px]">
+          <table className="w-full min-w-[1200px]">
             <thead className="bg-primary/20 sticky top-0">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Product</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Category</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Price</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Material</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Price/Weight</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Current Price</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Stock</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Sales</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Last Updated</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredItems.map((item, index) => (
+              {products.map((item) => (
                 <tr 
-                  key={item.id} 
+                  key={item._id} 
                   className="border-b border-white/5 hover:bg-primary/10 transition-colors duration-200"
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center">
                       <div className="w-12 h-12 rounded-lg overflow-hidden mr-3 bg-primary/20">
-                        <Image 
-                          src={item.img} 
-                          width={48} 
-                          height={48} 
-                          alt={item.name} 
-                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-200" 
-                          unoptimized 
-                        />
+                        {item.image && item.image[0] ? (
+                          <Image 
+                            src={item.image[0]} 
+                            width={48} 
+                            height={48} 
+                            alt={item.name} 
+                            className="w-full h-full object-cover hover:scale-110 transition-transform duration-200" 
+                            unoptimized 
+                            onError={(e) => { 
+                              e.target.onerror = null; 
+                              e.target.src = '/fallback.png'; // Ensure this path is correct
+                            }} 
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-primary/10 flex items-center justify-center">
+                            <FaBoxes className="text-secondary" />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <p className="font-semibold text-primary text-sm hover:text-gold transition-colors cursor-pointer">{item.name}</p>
-                        <p className="text-xs text-secondary">SKU: {item.id}</p>
+                        <p className="text-xs text-secondary">SKU: {item.sku}</p>
                       </div>
                     </div>
                   </td>
@@ -167,7 +291,20 @@ export default function ItemsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="font-bold text-gold text-sm">₹{item.price.toLocaleString()}</span>
+                    <div className="flex items-center space-x-2">
+                      {getPriceTypeIcon(item.priceType, item.material)}
+                      <span className="text-primary text-sm">{item.material}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {item.priceType === 'fixed' ? (
+                      <span className="text-gold font-medium text-sm">₹{item.fixedPrice?.toLocaleString()}</span>
+                    ) : (
+                      <span className="text-secondary text-sm">{item.weight}g</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="font-bold text-gold text-sm">₹{item.currentPrice?.toLocaleString()}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center space-x-2">
@@ -181,19 +318,23 @@ export default function ItemsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-blue-400 font-medium text-sm">{item.sales} sold</span>
+                    <span className="text-blue-400 font-medium text-sm">{item.salesCount || 0} sold</span>
                   </td>
-                  <td className="px-4 py-3 text-secondary text-sm">{item.lastUpdated}</td>
                   <td className="px-4 py-3">
                     <div className="flex space-x-1">
-                      <button className="text-blue-400 hover:text-blue-300 hover:scale-110 transition-all duration-200 p-1.5 hover:bg-blue-500/10 rounded-md">
-                        <FaEye className="text-sm" />
+                      <button 
+                        onClick={() => router.push(`/admin/items/${item._id}`)} // Combined View/Edit button
+                        className="text-blue-400 hover:text-blue-300 hover:scale-110 transition-all duration-200 p-1.5 hover:bg-blue-500/10 rounded-md flex items-center"
+                      >
+                        <FaEye className="text-sm mr-1" />
+                        <span className="text-xs">View/Edit</span>
                       </button>
-                      <button className="text-green-400 hover:text-green-300 hover:scale-110 transition-all duration-200 p-1.5 hover:bg-green-500/10 rounded-md">
-                        <FaEdit className="text-sm" />
-                      </button>
-                      <button className="text-red-400 hover:text-red-300 hover:scale-110 transition-all duration-200 p-1.5 hover:bg-red-500/10 rounded-md">
-                        <FaTrash className="text-sm" />
+                      <button 
+                        onClick={() => handleDelete(item._id)} // Delete button
+                        className="text-red-400 hover:text-red-300 hover:scale-110 transition-all duration-200 p-1.5 hover:bg-red-500/10 rounded-md flex items-center"
+                      >
+                        <FaTrash className="text-sm mr-1" />
+                        <span className="text-xs">Delete</span>
                       </button>
                     </div>
                   </td>
@@ -203,7 +344,7 @@ export default function ItemsPage() {
           </table>
         </div>
 
-        {filteredItems.length === 0 && (
+        {products.length === 0 && !loading && (
           <div className="text-center py-8">
             <div className="w-12 h-12 bg-gold/20 rounded-full flex items-center justify-center mx-auto mb-3">
               <FaSearch className="text-lg text-gold" />

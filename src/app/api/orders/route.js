@@ -1,7 +1,8 @@
+import { NextResponse } from "next/server";
 import { getAuth } from "@clerk/nextjs/server";
-import dbConnect from "../../../../lib/dbConnect";
-import Order from "../../../../models/order";
-import User from "../../../../models/Users";
+import dbConnect from "@/lib/db";
+import Order from "@/models/order";
+import Product from "@/models/product";
 
 export async function POST(req) {
   try {
@@ -13,27 +14,96 @@ export async function POST(req) {
 
     // Parse body
     const body = await req.json();
-    const { items, totalAmount, shippingAddress, paymentMethod, status } = body;
+    const { items, shippingAddress, billingAddress, paymentMethod, status } = body;
 
-    if (!items || !totalAmount || !shippingAddress) {
+    if (!items || !shippingAddress) {
       return new Response(JSON.stringify({ message: "Missing required fields" }), { status: 400 });
     }
 
     await dbConnect();
 
-    const newOrder = new Order({
+    // Process each item and populate from product data
+    const processedItems = await Promise.all(
+      items.map(async (item) => {
+        const product = await Product.findById(item.productId);
+        if (!product) throw new Error(`Product ${item.productId} not found`);
+        
+        // Base item data from product
+        const orderItem = {
+          productId: product._id,
+          name: product.name,
+          sku: product.sku,
+          category: product.category,
+          material: product.material,
+          priceType: product.priceType,
+          image: Array.isArray(product.image) && product.image.length > 0 ? product.image[0] : "",
+          quantity: item.quantity || 1,
+        };
+
+        // Calculate unit price
+        if (product.priceType === "fixed") {
+          orderItem.unitPrice = product.fixedPrice || 0;
+        } else if (product.priceType === "weight-based") {
+          // Get current rates (you'd fetch from your rates API/DB)
+          const currentGoldRate = item.goldRateAtPurchase || 5000; // fallback
+          const currentSilverRate = item.silverRateAtPurchase || 80; // fallback
+          
+          orderItem.goldRateAtPurchase = currentGoldRate;
+          orderItem.silverRateAtPurchase = currentSilverRate;
+          
+          // Simple calculation - you'd refine this based on material purity, etc.
+          const baseRate = product.material?.toLowerCase().includes('gold') ? currentGoldRate : currentSilverRate;
+          orderItem.unitPrice = (product.weight || 0) * baseRate;
+        }
+
+        orderItem.totalPrice = orderItem.unitPrice * orderItem.quantity;
+
+        // Map customization from product options + user selections
+        orderItem.customization = {
+          engraving: "",
+          size: "",
+          specialInstructions: "",
+        };
+
+        // Populate customization if allowed by product
+        if (product.customizationOptions?.allowEngraving && item.customization?.engraving) {
+          const engravingText = (item.customization.engraving || "").slice(0, product.customizationOptions.maxEngravingLength || 20);
+          orderItem.customization.engraving = engravingText;
+        }
+
+        if (Array.isArray(product.customizationOptions?.sizeOptions) && 
+            product.customizationOptions.sizeOptions.includes(item.customization?.size)) {
+          orderItem.customization.size = item.customization.size;
+        }
+
+        if (product.customizationOptions?.allowSpecialInstructions && item.customization?.specialInstructions) {
+          orderItem.customization.specialInstructions = item.customization.specialInstructions;
+        }
+
+        return orderItem;
+      })
+    );
+
+    // Calculate totals
+    const subtotal = processedItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const shippingCost = 100; // You'd calculate this based on address/weight
+    const total = subtotal + shippingCost;
+
+    // Create order
+    const order = await Order.create({
       userId,
-      items,
-      total: totalAmount,
+      items: processedItems,
+      subtotal,
+      shippingCost,
+      total,
       shippingAddress,
+      billingAddress,
       paymentMethod: paymentMethod || "COD",
       status: status || "pending",
       createdAt: new Date()
     });
 
-    await newOrder.save();
-
-    return new Response(JSON.stringify({ message: "Order created successfully", order: newOrder }), { status: 201 });
+    return new Response(JSON.stringify({ message: "Order created successfully", orderId: order._id }), { status: 201 });
 
   } catch (error) {
     console.error("Error creating order:", error);

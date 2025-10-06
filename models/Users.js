@@ -29,6 +29,11 @@ const userSchema = new mongoose.Schema({
   image: String, // base64
   addresses: [addressSchema],
   paymentMethods: [paymentSchema],
+  role: {
+    type: String,
+    enum: ['customer', 'admin', 'manager'],
+    default: 'customer'
+  },
 }, { timestamps: true });
 
 export default mongoose.models.User || mongoose.model('User', userSchema);
