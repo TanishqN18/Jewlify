@@ -8,7 +8,7 @@ import {
   FaPinterest, FaWhatsapp, FaTwitter, FaPenFancy, FaRulerCombined, FaCommentDots,
   FaChevronLeft, FaChevronRight, FaExpand, FaTimes, FaSearchPlus, FaSearchMinus
 } from 'react-icons/fa';
-import useCartStore from '../components/store/cartStore';
+import useCartStore from './store/cartStore';
 
 // Reusable Components
 const Badge = ({ text }) => (
@@ -53,27 +53,77 @@ export default function ProductDetailPage({ product, relatedProducts }) {
     size: "",
     specialInstructions: "",
   });
-  const { addToCart } = useCartStore();
+  const { addToCart, fetchRates, goldRate, silverRate } = useCartStore();
+
+  useEffect(() => {
+    fetchRates(); // Fetch rates when the component mounts
+  }, [fetchRates]);
+
+  // Debug logs
+  console.log('Full product prop:', product);
+  console.log('Product structure:', JSON.stringify(product, null, 2));
+
+  // Extract product data properly - handle both direct and nested data
+  const productData = useMemo(() => {
+    const data = product?.data || product;
+    console.log('Extracted productData:', data);
+    return data;
+  }, [product]);
 
   // SSR-safe share URL
   const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || '';
-  const canonicalPath = product?.slug ? `/product/${product.slug}` : `/product/${product._id}`;
+  const canonicalPath = productData?.slug ? `/product/${productData.slug}` : `/product/${productData?._id}`;
   const shareUrl = `${SITE_URL}${canonicalPath}`;
 
   // Consistent currency formatting
   const formatter = useMemo(() => new Intl.NumberFormat('en-IN'), []);
 
-  // IMAGES
+  // IMAGES - Enhanced debugging and URL fixing
   const images = useMemo(() => {
-    if (Array.isArray(product?.image)) return product.image.filter(Boolean);
-    if (typeof product?.image === 'string' && product.image.length) return [product.image];
-    return [];
-  }, [product]);
+    console.log('Processing images for productData:', productData);
+    
+    let imageArray = [];
+
+    // Priority order: imageUrls, coverImage, image (for backward compatibility)
+    if (productData?.imageUrls && Array.isArray(productData.imageUrls) && productData.imageUrls.length > 0) {
+      imageArray = productData.imageUrls;
+      console.log('Using imageUrls:', imageArray);
+    } else if (productData?.coverImage) {
+      imageArray = [productData.coverImage];
+      console.log('Using coverImage:', imageArray);
+    } else if (productData?.image) {
+      if (Array.isArray(productData.image)) {
+        imageArray = productData.image;
+      } else if (typeof productData.image === 'string') {
+        imageArray = [productData.image];
+      }
+      console.log('Using image field:', imageArray);
+    }
+
+    // Fix Cloudinary URLs and filter out empty strings
+    const validImages = imageArray
+      .filter(url => url && typeof url === 'string' && url.trim().length > 0)
+      .map(url => {
+        // Fix the Cloudinary URL typo if present
+        return url;
+      });
+
+    console.log('Final valid images:', validImages);
+
+    // Return valid images or fallback
+    if (validImages.length === 0) {
+      console.log('No valid images found, using fallback');
+      return ['/fallback.png'];
+    }
+
+    return validImages;
+  }, [productData]);
 
   const [current, setCurrent] = useState(0);
   const [lightbox, setLightbox] = useState(false);
   const [zooming, setZooming] = useState(false);
   const [origin, setOrigin] = useState({ x: '50%', y: '50%' });
+  const [imageError, setImageError] = useState({});
   const imgWrapRef = useRef(null);
   const total = images.length;
   const isMultiple = total > 1;
@@ -84,6 +134,12 @@ export default function ProductDetailPage({ product, relatedProducts }) {
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     setOrigin({ x: `${x}%`, y: `${y}%` });
   };
+
+  // Handle image load errors
+  const handleImageError = useCallback((index, src) => {
+    console.error(`Failed to load image at index ${index}:`, src);
+    setImageError(prev => ({ ...prev, [index]: true }));
+  }, []);
 
   // Customization accordion
   const [showCustomize, setShowCustomize] = useState(false);
@@ -117,18 +173,18 @@ export default function ProductDetailPage({ product, relatedProducts }) {
   }, [zooming]);
 
   // Customization defaults
-  const customizationOptions = product.customizationOptions || {
-    allowEngraving: true,
+  const customizationOptions = productData?.customizationOptions || {
+    allowEngraving: false,
     maxEngravingLength: 20,
-    allowSpecialInstructions: true,
-    sizeOptions: ["XS", "S", "M", "L", "XL"]
+    allowSpecialInstructions: false,
+    sizeOptions: []
   };
 
   const handleAddToCart = () => {
-    addToCart(product, customization, quantity);
+    addToCart(productData, customization, quantity);
     const toast = document.createElement("div");
     toast.className = "fixed top-4 right-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50";
-    toast.innerHTML = `<div class="font-semibold">Added to cart!</div><div class="text-sm opacity-90">${product.name} ${quantity > 1 ? `(${quantity})` : ''}</div>`;
+    toast.innerHTML = `<div class="font-semibold">Added to cart!</div><div class="text-sm opacity-90">${productData?.name} ${quantity > 1 ? `(${quantity})` : ''}</div>`;
     document.body.appendChild(toast);
     setTimeout(() => document.body.contains(toast) && document.body.removeChild(toast), 3000);
   };
@@ -138,15 +194,47 @@ export default function ProductDetailPage({ product, relatedProducts }) {
     window.location.href = '/checkout';
   };
 
+  // Enhanced price calculation
   const getDisplayPrice = () => {
-    if (product.priceType === "fixed") return product.fixedPrice || product.price || 0;
-    if (product.priceType === "weight-based") {
-      const goldRate = 5000;
-      return (product.weight || 0) * goldRate;
+    // If priceType is fixed, always use the price field
+    if (productData?.priceType === 'fixed' && productData?.price > 0) {
+      return productData.price;
     }
-    return product.price || 0;
+
+    // If currentPrice is available, use it
+    if (productData?.currentPrice && productData.currentPrice > 0) {
+      return productData.currentPrice;
+    }
+
+    // Weight-based calculation
+    if (productData?.weight && productData.weight > 0) {
+      const material = productData.material?.toLowerCase() || '';
+      if (material === 'gold' && goldRate > 0) return productData.weight * goldRate;
+      if (material === 'silver' && silverRate > 0) return productData.weight * silverRate;
+    }
+
+    // Fallback
+    return productData?.price || 0;
   };
+
   const displayPrice = getDisplayPrice();
+  console.log('Final display price:', displayPrice);
+
+  // Check if product is in stock
+  const isInStock = productData?.inStock === true && (productData?.stock > 0);
+  console.log('Stock check:', {
+    inStock: productData?.inStock,
+    stock: productData?.stock,
+    isInStock
+  });
+
+  // Function to get the first image URL
+  const getFirstImage = (images) => {
+    if (images && images.length > 0) {
+      return images[0]; // Return the first image URL
+    }
+    return null; // Return null if no images are available
+  };
 
   return (
     <div className="bg-primary min-h-screen transition-all duration-300">
@@ -158,7 +246,7 @@ export default function ProductDetailPage({ product, relatedProducts }) {
             <div className="grid grid-cols-[76px,1fr] md:grid-cols-[88px,1fr] gap-4 items-start">
               {/* Left vertical thumbnails */}
               <div className="flex flex-col gap-3 overflow-y-auto max-h-[70vh] pr-1">
-                {images.length ? (
+                {images.length > 0 && images[0] !== '/fallback.png' ? (
                   images.map((src, i) => (
                     <button
                       key={`${src}-${i}`}
@@ -168,13 +256,21 @@ export default function ProductDetailPage({ product, relatedProducts }) {
                       }`}
                       aria-label={`Show image ${i + 1}`}
                     >
-                      <Image
-                        src={src}
-                        alt={`${product.name} thumbnail ${i + 1}`}
-                        width={96}
-                        height={96}
-                        className="w-full h-full object-cover"
-                      />
+                      {!imageError[i] ? (
+                        <Image
+                          src={src}
+                          alt={`${productData?.name} thumbnail ${i + 1}`}
+                          width={96}
+                          height={96}
+                          className="w-full h-full object-cover"
+                          onError={() => handleImageError(i, src)}
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                          Error
+                        </div>
+                      )}
                     </button>
                   ))
                 ) : (
@@ -187,7 +283,7 @@ export default function ProductDetailPage({ product, relatedProducts }) {
                 <div
                   className={`relative rounded-xl overflow-hidden border border-white/10 ${zooming ? 'cursor-zoom-out' : 'cursor-zoom-in'} px-4 md:px-6 py-4`}
                 >
-                  {images.length > 0 ? (
+                  {images.length > 0 && images[0] !== '/fallback.png' ? (
                     <>
                       {/* Aspect-ratio container to lock height and avoid overflow */}
                       <div
@@ -196,19 +292,30 @@ export default function ProductDetailPage({ product, relatedProducts }) {
                         onMouseMove={zooming ? onMove : undefined}
                         onClick={() => setZooming(z => !z)}
                       >
-                        <Image
-                          key={images[current]}
-                          src={images[current]}
-                          alt={`${product.name} - Image ${current + 1}`}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                          className="object-contain transition-transform duration-300 will-change-transform"
-                          style={{
-                            transformOrigin: `${origin.x} ${origin.y}`,
-                            transform: zooming ? 'scale(1.6)' : 'scale(1)',
-                          }}
-                          priority
-                        />
+                        {!imageError[current] ? (
+                          <Image
+                            key={images[current]}
+                            src={images[current]}
+                            alt={`${productData?.name} - Image ${current + 1}`}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            className="object-contain transition-transform duration-300 will-change-transform"
+                            style={{
+                              transformOrigin: `${origin.x} ${origin.y}`,
+                              transform: zooming ? 'scale(1.6)' : 'scale(1)',
+                            }}
+                            priority
+                            onError={() => handleImageError(current, images[current])}
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400">
+                            <div className="text-center">
+                              <div className="text-4xl mb-2">📷</div>
+                              <div className="text-sm">Image not available</div>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Aligned gold arrows inside the aspect box */}
                         {isMultiple && (
@@ -250,14 +357,17 @@ export default function ProductDetailPage({ product, relatedProducts }) {
                     </>
                   ) : (
                     <div className="w-full h-[360px] grid place-items-center text-secondary">
-                      No image available
+                      <div className="text-center">
+                        <div className="text-6xl mb-4 text-secondary/50">📷</div>
+                        <div className="text-lg">No image available</div>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Animated dots below image */}
                 <div className="mt-4 flex items-center justify-center">
-                  {images.length > 0 && (
+                  {images.length > 0 && images[0] !== '/fallback.png' && (
                     <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-secondary/40 border border-white/10">
                       {images.map((_, i) => (
                         <motion.button
@@ -282,20 +392,35 @@ export default function ProductDetailPage({ product, relatedProducts }) {
             </div>
           </div>
 
-          {/* RIGHT: Info +  */}
+          {/* RIGHT: Info */}
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold text-primary mb-2 transition-colors duration-300">
-                {product.name}
+                {productData?.name || 'Product Name'}
               </h1>
               <p className="text-gold text-2xl font-semibold">
                 ₹{formatter.format(displayPrice)}
-                {product.priceType === "weight-based" && (
-                  <span className="text-sm text-secondary ml-2">
-                    (≈{product.weight}g)
-                  </span>
-                )}
               </p>
+              {productData?.weight && (
+                <div className="text-sm pt-1 font-semibold mt-1">
+                  <span className="text-gold">Weight:</span>{' '}
+                  <span className="text-primary">{productData.weight}g</span>
+                </div>
+              )}
+
+              {Array.isArray(productData.gemstones) && productData.gemstones.length > 0 && (
+                <div className="mt-2">
+                  <span className="text-pink-600 font-semibold">Gemstones:</span>{' '}
+                  <span className="text-primary">{productData.gemstones.join(', ')}</span>
+                </div>
+              )}
+
+              {productData.material && productData.material.toLowerCase().includes('mixed') && (
+                <div className="mt-2">
+                  <span className="text-purple-600 font-semibold">Material:</span>{' '}
+                  <span className="text-primary">{productData.material}</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -303,10 +428,11 @@ export default function ProductDetailPage({ product, relatedProducts }) {
                 Description
               </h3>
               <p className="text-secondary leading-relaxed transition-colors duration-300">
-                {product.description || "Experience the perfect blend of traditional craftsmanship and modern elegance with this exquisite piece from our premium collection."}
+                {productData?.description || "Experience the perfect blend of traditional craftsmanship and modern elegance with this exquisite piece from our premium collection."}
               </p>
             </div>
 
+            {/* Customization options */}
             {(customizationOptions.allowEngraving ||
               customizationOptions.allowSpecialInstructions ||
               (Array.isArray(customizationOptions.sizeOptions) && customizationOptions.sizeOptions.length > 0)) && (
@@ -417,37 +543,74 @@ export default function ProductDetailPage({ product, relatedProducts }) {
             </div>
 
             {/* Tags */}
-            <div className="flex items-center space-x-4">
-              <span className="bg-gold text-white px-3 py-1 rounded-full text-sm font-medium">
-                {product.category}
+            <div className="flex items-center space-x-4 flex-wrap gap-2">
+              {productData?.category && (
+                <span className="bg-gold text-white px-3 py-1 rounded-full text-sm font-medium">
+                  {productData.category}
+                </span>
+              )}
+              {productData?.material && (
+                <span
+                  className={`px-3 py-1 rounded-full text-sm font-semibold transition-all duration-300
+                    ${(() => {
+                      const mat = productData.material?.toLowerCase() || '';
+                      if (mat.includes('gold')) return 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-yellow-900 border border-yellow-300 shadow-gold';
+                      if (mat.includes('silver')) return 'bg-gradient-to-r from-gray-200 to-gray-400 text-gray-800 border border-gray-300 shadow';
+                      if (mat.includes('diamond')) return 'bg-gradient-to-r from-blue-100 to-white text-blue-700 border border-blue-200 shadow';
+                      if (mat.includes('platinum')) return 'bg-gradient-to-r from-slate-300 to-slate-500 text-slate-900 border border-slate-400 shadow';
+                      if (mat.includes('mixed')) return 'bg-gradient-to-r from-pink-300 via-yellow-200 to-blue-200 text-purple-900 border border-purple-200 shadow';
+                      if (mat.includes('gemstone')) return 'bg-gradient-to-r from-emerald-200 to-emerald-400 text-emerald-900 border border-emerald-300 shadow';
+                      return 'bg-secondary/60 text-primary border border-white/20';
+                    })()}
+                `}
+              >
+                {productData.material}
               </span>
-              {product.material && (
-                <span className="bg-secondary text-secondary px-3 py-1 rounded-full text-sm transition-all duration-300">
-                  {product.material}
+              )}
+              {productData?.tags && productData.tags.length > 0 && productData.tags.map((tag, index) => (
+                <span key={index} className="bg-secondary/40 text-primary px-3 py-1 rounded-full text-sm transition-all duration-300">
+                  {tag}
+                </span>
+              ))}
+              {productData?.status && (
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                  {productData.status}
                 </span>
               )}
-              {product.tag && (
-                <span className="bg-secondary text-secondary px-3 py-1 rounded-full text-sm transition-all duration-300">
-                  {product.tag}
-                </span>
-              )}
+            </div>
+
+            {/* Stock Status - Fixed */}
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                isInStock
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {isInStock ? `In Stock (available)` : 'Out of Stock'}
+              </span>
             </div>
 
             {/* Actions */}
             <div className="space-y-3">
               <button
                 onClick={handleAddToCart}
-                className="w-full bg-gold hover:opacity-90 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+                disabled={!isInStock}
+                className="w-full bg-gold hover:opacity-90 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add to Cart - ₹{formatter.format(displayPrice * quantity)}
+                {isInStock
+                  ? `Add to Cart - ₹${formatter.format(displayPrice * quantity)}`
+                  : 'Out of Stock'
+                }
               </button>
 
-              <button
-                onClick={handleBuyNow}
-                className="w-full bg-secondary border border-gold text-primary hover:bg-gold hover:text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                Buy Now
-              </button>
+              {isInStock && (
+                <button
+                  onClick={handleBuyNow}
+                  className="w-full bg-secondary border border-gold text-primary hover:bg-gold hover:text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  Buy Now
+                </button>
+              )}
             </div>
 
             {/* Share (SSR-safe) */}
@@ -457,7 +620,7 @@ export default function ProductDetailPage({ product, relatedProducts }) {
               </h3>
               <div className="flex space-x-3">
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`Check out this amazing product: ${product.name} - ${shareUrl}`)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(`Check out this amazing product: ${productData?.name} - ${shareUrl}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors duration-300"
@@ -465,7 +628,7 @@ export default function ProductDetailPage({ product, relatedProducts }) {
                   <FaWhatsapp size={20} />
                 </a>
                 <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out this amazing product: ${product.name}`)}&url=${encodeURIComponent(shareUrl)}`}
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out this amazing product: ${productData?.name}`)}&url=${encodeURIComponent(shareUrl)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors duration-300"
@@ -473,7 +636,7 @@ export default function ProductDetailPage({ product, relatedProducts }) {
                   <FaTwitter size={20} />
                 </a>
                 <a
-                  href={`https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareUrl)}&description=${encodeURIComponent(product.name)}`}
+                  href={`https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareUrl)}&description=${encodeURIComponent(productData?.name || '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors duration-300"
@@ -488,7 +651,7 @@ export default function ProductDetailPage({ product, relatedProducts }) {
 
       {/* Lightbox */}
       <AnimatePresence>
-        {lightbox && images.length > 0 && (
+        {lightbox && images.length > 0 && images[0] !== '/fallback.png' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -519,10 +682,11 @@ export default function ProductDetailPage({ product, relatedProducts }) {
               >
                 <Image
                   src={images[current]}
-                  alt={`${product.name} - fullscreen ${current + 1}`}
+                  alt={`${productData?.name} - fullscreen ${current + 1}`}
                   width={1600}
                   height={1600}
                   className="w-full h-auto rounded-xl shadow-2xl object-contain"
+                  unoptimized
                 />
 
                 <div className="absolute inset-y-0 left-0 flex items-center">
@@ -557,7 +721,14 @@ export default function ProductDetailPage({ product, relatedProducts }) {
                     onClick={() => setCurrent(i)}
                     className={`rounded overflow-hidden border ${current===i?'border-gold':'border-white/20'}`}
                   >
-                    <Image src={src} alt={`thumb ${i+1}`} width={56} height={56} className="w-14 h-14 object-cover" />
+                    <Image 
+                      src={src} 
+                      alt={`thumb ${i+1}`} 
+                      width={56} 
+                      height={56} 
+                      className="w-14 h-14 object-cover"
+                      unoptimized
+                    />
                   </button>
                 ))}
               </div>
@@ -573,27 +744,49 @@ export default function ProductDetailPage({ product, relatedProducts }) {
             Related Products
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {relatedProducts.map((relatedProduct) => (
-              <Link
-                key={relatedProduct._id}
-                href={`/product/${relatedProduct._id}`}
-                className="bg-secondary rounded-lg p-4 hover:shadow-lg transition-all duration-300 group"
-              >
-                <Image
-                  src={Array.isArray(relatedProduct.image) ? relatedProduct.image[0] : relatedProduct.image}
-                  alt={relatedProduct.name}
-                  width={200}
-                  height={200}
-                  className="w-full h-48 object-cover rounded-lg mb-4 group-hover:scale-105 transition-transform duration-300"
-                />
-                <h3 className="text-primary font-semibold mb-2 truncate transition-colors duration-300">
-                  {relatedProduct.name}
-                </h3>
-                <p className="text-gold font-bold">
-                  ₹{formatter.format(relatedProduct.fixedPrice || relatedProduct.price || 0)}
-                </p>
-              </Link>
-            ))}
+            {relatedProducts.map((relatedProduct) => {
+              const relatedData = relatedProduct?.data || relatedProduct;
+              // Fix: getFirstImage should take the whole product, not just imageUrls
+              const getFirstImage = (product) => {
+                if (product.imageUrls && Array.isArray(product.imageUrls) && product.imageUrls.length > 0) {
+                  return product.imageUrls[0];
+                }
+                if (product.coverImage) {
+                  return product.coverImage;
+                }
+                if (product.image) {
+                  return Array.isArray(product.image) ? product.image[0] : product.image;
+                }
+                return '/fallback.png';
+              };
+
+              const firstImage = getFirstImage(relatedData);
+
+              return (
+                <Link
+                  key={relatedData._id}
+                  href={`/product/${relatedData._id}`}
+                  className="bg-secondary rounded-lg p-4 hover:shadow-lg transition-all duration-300 group"
+                >
+                  {firstImage && firstImage !== '/fallback.png' ? (
+                    <Image
+                      src={firstImage}
+                      alt={relatedData.name}
+                      width={200}
+                      height={200}
+                    />
+                  ) : (
+                    <div>No image available</div>
+                  )}
+                  <h3 className="text-primary font-semibold mb-2 truncate transition-colors duration-300">
+                    {relatedData.name}
+                  </h3>
+                  <p className="text-gold font-bold">
+                    ₹{formatter.format(relatedData.currentPrice || relatedData.fixedPrice || relatedData.price || 0)}
+                  </p>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

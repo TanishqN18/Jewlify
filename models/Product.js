@@ -129,9 +129,6 @@ const ProductSchema = new Schema({
   timestamps: true,
 });
 
-// Keep only this line
-ProductSchema.index({ sku: 1 }, { unique: true });
-
 // Pre-save middleware to generate SKU and update status
 ProductSchema.pre('save', function(next) {
   if (!this.sku) {

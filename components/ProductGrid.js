@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ProductCard from './ProductCard';
-import useFilterStore from './store/filterStore';
+import useFilterStore from './store/FilterStore';
 
 export default function ProductGrid({ allProducts = [] }) {
   const { category, priceRange } = useFilterStore();

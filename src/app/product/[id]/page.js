@@ -53,17 +53,26 @@ export default async function ProductPage(props) {
         product={{
           _id: product._id.toString(),
           name: product.name,
-          image: product.image,
-          price: product.price,
-          category: product.category,
+          imageUrls: product.imageUrls || [product.image],
+          currentPrice: product.currentPrice || null,
+          price: product.priceType === 'fixed' ? product.fixedPrice || 0 : product.price || 0, // <-- FIXED HERE
+          priceType: product.priceType || 'fixed',
           description: product.description,
-          tag: product.tag || '',
+          category: product.category,
+          weight: product.weight || 0,
+          inStock: product.inStock || false,
+          stock: product.stock || 0,
+          gemstones: product.gemstones || [],
+          tags: product.tags || [],
+          material: product.material || 'unknown',
         }}
         relatedProducts={relatedProducts.map((p) => ({
           _id: p._id.toString(),
           name: p.name,
-          image: p.image,
-          price: p.price,
+          imageUrls: p.imageUrls || [p.image],
+          currentPrice: p.currentPrice || null,
+          price: p.priceType === 'fixed' ? p.fixedPrice || 0 : p.price || 0, // <-- FIXED HERE
+          priceType: p.priceType || 'fixed',
           category: p.category,
         }))}
       />

@@ -8,6 +8,7 @@ const nextConfig = {
       'img.clerk.com',
       'images.clerk.dev',
       'storage.googleapis.com',
+      'res.cloudinary.com',
     ],
   },
 };

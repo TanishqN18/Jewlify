@@ -2,20 +2,36 @@ import { create } from 'zustand';
 
 const useCartStore = create((set, get) => ({
   cart: [],
+  goldRate: 0,
+  silverRate: 0,
+
   setCart: (cart) => set({ cart }),
+
+  // Fetch rates from the API
+  fetchRates: async () => {
+    try {
+      const response = await fetch('/api/admin/rates'); // Adjust the API endpoint as necessary
+      const data = await response.json();
+      if (data.success) {
+        set({ goldRate: data.rates.goldRate, silverRate: data.rates.silverRate });
+      }
+    } catch (error) {
+      console.error('Failed to fetch rates:', error);
+    }
+  },
 
   addToCart: (item, customization = {}, quantity = 1) => {
     const cart = get().cart;
-    
+
     // Create unique identifier including customization
     const itemKey = `${item._id}-${JSON.stringify(customization)}`;
-    
+
     // Find existing item with same product AND same customization
-    const idx = cart.findIndex((i) => 
-      i._id === item._id && 
+    const idx = cart.findIndex((i) =>
+      i._id === item._id &&
       JSON.stringify(i.customization || {}) === JSON.stringify(customization)
     );
-    
+
     const cartItem = {
       ...item,
       quantity: Number(quantity || 1),
@@ -31,9 +47,9 @@ const useCartStore = create((set, get) => ({
     if (idx > -1) {
       // Update existing item quantity
       const next = cart.slice();
-      next[idx] = { 
-        ...next[idx], 
-        quantity: (next[idx].quantity || 1) + Number(quantity || 1) 
+      next[idx] = {
+        ...next[idx],
+        quantity: (next[idx].quantity || 1) + Number(quantity || 1)
       };
       set({ cart: next });
     } else {
@@ -42,8 +58,8 @@ const useCartStore = create((set, get) => ({
     }
   },
 
-  removeFromCart: (cartKey) => set((s) => ({ 
-    cart: s.cart.filter((i) => i.cartKey !== cartKey) 
+  removeFromCart: (cartKey) => set((s) => ({
+    cart: s.cart.filter((i) => i.cartKey !== cartKey)
   })),
 
   updateQuantity: (cartKey, qty) =>
@@ -61,15 +77,15 @@ const useCartStore = create((set, get) => ({
   createOrder: async (shippingAddress, billingAddress, paymentMethod) => {
     try {
       const cart = get().cart;
-      
+
       // Transform cart items to order format
       const orderItems = cart.map(item => ({
         productId: item._id,
         quantity: item.quantity,
         customization: item.customization,
         // Include current rates if needed for weight-based items
-        goldRateAtPurchase: 5000, // You'd fetch current rate
-        silverRateAtPurchase: 80,  // You'd fetch current rate
+        goldRateAtPurchase: get().goldRate, // Use fetched gold rate
+        silverRateAtPurchase: get().silverRate, // Use fetched silver rate
       }));
 
       const response = await fetch("/api/orders", {
@@ -104,8 +120,16 @@ const useCartStore = create((set, get) => ({
       if (item.priceType === "fixed") {
         price = item.fixedPrice || item.price || 0;
       } else if (item.priceType === "weight-based") {
-        const goldRate = 5000; // You'd fetch current rate
-        price = (item.weight || 0) * goldRate;
+        const goldRate = get().goldRate; // Use fetched gold rate
+        const silverRate = get().silverRate; // Use fetched silver rate
+        const weight = item.weight || 0;
+
+        // Check the material type and calculate price accordingly
+        if (item.material === 'gold') {
+          price = weight * goldRate; // Calculate price for gold
+        } else if (item.material === 'silver') {
+          price = weight * silverRate; // Calculate price for silver
+        }
       } else {
         price = item.price || 0;
       }
