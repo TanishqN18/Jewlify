@@ -4,28 +4,27 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FaEdit, FaTrash, FaPlus, FaSearch, FaFilter, FaEye, FaBoxes, FaSpinner, FaCoins, FaGem } from 'react-icons/fa';
 
-// --- Custom Toast Function (copied from AddProduct module) ---
+// --- Updated Toast Function (copied from AddProduct module) ---
 function showToast(message, type = 'success') {
-  const isSuccess = type === 'success' || type === 'info';
+  const isSuccess = type === 'success';
   const toast = document.createElement("div");
   toast.className = `fixed top-4 right-4 bg-gradient-to-r ${
     isSuccess ? 'from-emerald-500 to-green-600' : 'from-red-500 to-pink-600'
   } text-white px-6 py-4 rounded-xl shadow-2xl z-50 transform transition-all duration-500 translate-x-full`;
-
+  
   toast.innerHTML = `
     <div class="flex items-center space-x-3">
       <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-          ${
-            isSuccess
-              ? '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>'
-              : '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>'
+          ${isSuccess 
+            ? '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>'
+            : '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>'
           }
         </svg>
       </div>
       <span class="font-semibold">${message}</span>
     </div>`;
-
+  
   document.body.appendChild(toast);
   setTimeout(() => toast.classList.remove("translate-x-full"), 100);
   setTimeout(() => {
@@ -106,21 +105,23 @@ export default function ItemsPage() {
     const confirmed = window.confirm('Are you sure you want to delete this product?');
     if (confirmed) {
       try {
+        showToast('Deleting product...', 'info'); // Show deleting toast
+
         const response = await fetch(`/api/admin/products/${id}`, {
           method: 'DELETE'
         });
 
         if (response.ok) {
-          showToast('Product deleted successfully.', 'success');
+          showToast('Product deleted successfully!', 'success'); // Success toast
           fetchProducts(); // Refresh the list
         } else {
-          showToast('Failed to delete product. Please try again.', 'error');
+          showToast('Failed to delete product. Please try again.', 'error'); // Error toast
         }
       } catch (error) {
-        showToast('Error deleting product. Please try again later.', 'error');
+        showToast('Error deleting product. Please try again later.', 'error'); // Error toast
       }
     } else {
-      showToast('Delete action was canceled.', 'info');
+      showToast('Delete action was canceled.', 'info'); // Info toast for cancel
     }
   };
 
@@ -161,7 +162,7 @@ export default function ItemsPage() {
         </div>
         <button 
           onClick={() => router.push('/admin/AddProduct')}
-          className="bg-gradient-to-r from-yellow-300 to-yellow-500 text-primary px-4 py-2 rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center space-x-2 text-sm"
+          className="bg-gradient-to-r from-yellow-300 to-amber-500 text-primary px-4 py-2 rounded-xl border border-amber-500 hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center space-x-2 text-sm"
         >
           <FaPlus />
           <span>Add New Product</span>
@@ -238,17 +239,17 @@ export default function ItemsPage() {
       <div className="bg-secondary rounded-lg shadow-lg border border-white/10 flex-1 flex flex-col min-h-0">
         <div className="flex-1 overflow-auto">
           <table className="w-full min-w-[1200px]">
-            <thead className="bg-primary/20 sticky top-0">
+            <thead className="bg-primary/20  top-0">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Product</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-primary">Product</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Category</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Material</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Price/Weight</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Weight (gm)</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Current Price</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Stock</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Sales</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Actions</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-primary">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -260,18 +261,31 @@ export default function ItemsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center">
                       <div className="w-12 h-12 rounded-lg overflow-hidden mr-3 bg-primary/20">
-                        {item.image && item.image[0] ? (
-                          <Image 
-                            src={item.image[0]} 
-                            width={48} 
-                            height={48} 
-                            alt={item.name} 
-                            className="w-full h-full object-cover hover:scale-110 transition-transform duration-200" 
-                            unoptimized 
-                            onError={(e) => { 
-                              e.target.onerror = null; 
-                              e.target.src = '/fallback.png'; // Ensure this path is correct
-                            }} 
+                        {item.coverImage ? (
+                          <Image
+                            src={item.coverImage}
+                            width={48}
+                            height={48}
+                            alt={item.name}
+                            className="w-full h-full object-cover hover:scale-110 transition-transform duration-200"
+                            unoptimized
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = '/fallback.png';
+                            }}
+                          />
+                        ) : item.image && item.image[0] ? (
+                          <Image
+                            src={item.image[0]}
+                            width={48}
+                            height={48}
+                            alt={item.name}
+                            className="w-full h-full object-cover hover:scale-110 transition-transform duration-200"
+                            unoptimized
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = '/fallback.png';
+                            }}
                           />
                         ) : (
                           <div className="w-full h-full bg-primary/10 flex items-center justify-center">
@@ -297,11 +311,7 @@ export default function ItemsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {item.priceType === 'fixed' ? (
-                      <span className="text-gold font-medium text-sm">₹{item.fixedPrice?.toLocaleString()}</span>
-                    ) : (
-                      <span className="text-secondary text-sm">{item.weight}g</span>
-                    )}
+                      <span className="text-secondary font-medium text-sm">{item.weight} gm</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="font-bold text-gold text-sm">₹{item.currentPrice?.toLocaleString()}</span>

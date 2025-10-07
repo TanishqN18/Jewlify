@@ -203,9 +203,9 @@ export default function ProductEditorClient({ initialProduct, productId }) {
 
             setForm(formData);
             setOriginalForm(formData);
-            toast.success("Product details loaded successfully!"); // Toast notification
+            showToast("Product details loaded successfully!", 'success'); // ✅ Keep this
           } else {
-            toast.error("Failed to fetch product details."); // Toast notification
+            showToast("Failed to fetch product details.", 'error'); // ✅ Change this from toast.error
           }
         } catch (error) {
           showToast("Error loading product details.", 'error'); // Toast notification
@@ -355,10 +355,10 @@ export default function ProductEditorClient({ initialProduct, productId }) {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Delete failed");
-      toast.success("Product deleted successfully!");
+      showToast("Product deleted successfully!", 'success'); // ✅ Change from toast.success
       router.push("/admin/items");
     } catch (e) {
-      toast.error(e.message || "Delete error");
+      showToast(e.message || "Delete error", 'error'); // ✅ Change from toast.error
     } finally {
       setDeleting(false);
     }
