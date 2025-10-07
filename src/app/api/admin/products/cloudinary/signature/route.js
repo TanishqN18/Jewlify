@@ -1,53 +1,65 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export async function POST(request) {
+function respond(data, status = 200) {
+  return new NextResponse(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+  });
+}
+
+async function handlePOST(req) {
   try {
-    const body = await request.json();
-    const { paramsToSign } = body;
+    const body = await req.json().catch(() => ({}));
 
-    console.log('🔐 Generating signature for params:', paramsToSign);
+    // Accept either { paramsToSign: {...} } or { folder: '...' }
+    let paramsToSign = body.paramsToSign;
+    if (!paramsToSign && body.folder) {
+      paramsToSign = { folder: body.folder };
+    }
 
-    // Validate required parameters
     if (!paramsToSign || typeof paramsToSign !== 'object') {
-      return NextResponse.json(
-        { error: 'Invalid paramsToSign object' },
-        { status: 400 }
-      );
+      return respond({ error: 'Invalid paramsToSign object' }, 400);
     }
 
-    // Ensure timestamp is present
+    if (!paramsToSign.folder) {
+      return respond({ error: 'folder is required inside paramsToSign' }, 400);
+    }
+
+    if (String(paramsToSign.folder).includes('..')) {
+      return respond({ error: 'Invalid folder path' }, 400);
+    }
+
     if (!paramsToSign.timestamp) {
-      paramsToSign.timestamp = Math.round(new Date().getTime() / 1000);
+      paramsToSign.timestamp = Math.round(Date.now() / 1000);
     }
 
-    // Generate signature using Cloudinary utility
     const signature = cloudinary.utils.api_sign_request(
       paramsToSign,
       process.env.CLOUDINARY_API_SECRET
     );
 
-    console.log('✅ Signature generated successfully');
-
-    return NextResponse.json({
+    return respond({
       signature,
-      api_key: process.env.CLOUDINARY_API_KEY,
       timestamp: paramsToSign.timestamp,
-      cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+      apiKey: process.env.CLOUDINARY_API_KEY,
+      cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME
     });
-
-  } catch (error) {
-    console.error('❌ Signature generation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate signature', details: error.message },
-      { status: 500 }
-    );
+  } catch (e) {
+    console.error('Signature generation error:', e);
+    return respond({ error: 'Failed to generate signature', details: e.message }, 500);
   }
+}
+
+export async function POST(req) {
+  return handlePOST(req);
 }

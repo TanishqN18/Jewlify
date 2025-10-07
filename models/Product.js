@@ -62,7 +62,7 @@ const ProductSchema = new Schema({
   // For weight-based items (gold, silver)
   weight: {
     type: Number,
-    required: function() { return this.priceType === 'weight-based'; }
+    required: true // Make weight always required
   },
   
   // Stock management

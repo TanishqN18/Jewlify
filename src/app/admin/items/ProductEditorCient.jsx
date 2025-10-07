@@ -1,10 +1,9 @@
 'use client';
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaArrowLeft, FaEdit, FaTrash, FaSave, FaTimes, FaPlus, FaImage, FaUpload, FaEye, FaEyeSlash } from "react-icons/fa";
 import Image from "next/image";
-import { toast } from "react-toastify";
 import dynamic from "next/dynamic";
 
 // Import StepMedia component
@@ -40,13 +39,15 @@ const fade = {
 export default function ProductEditorClient({ initialProduct, productId }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("Overview");
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(false); // Initialize editing state to false
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [originalForm, setOriginalForm] = useState(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const [loading, setLoading] = useState(true); // Add loading state
+  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
+  const [overlayMessage, setOverlayMessage] = useState('');
 
   const [form, setForm] = useState(() => ({
     name: "",
@@ -54,6 +55,7 @@ export default function ProductEditorClient({ initialProduct, productId }) {
     category: "",
     material: "",
     mixedMetals: [],
+    gemstones: [],
     priceType: "fixed",
     fixedPrice: "",
     weight: "",
@@ -77,40 +79,33 @@ export default function ProductEditorClient({ initialProduct, productId }) {
     }
   }));
 
+  const [rates, setRates] = useState({});
+
   // Helper function to get proper image URL
   const getImageSrc = useCallback((imageItem) => {
     if (!imageItem) return null;
 
-    // Handle string URLs (direct URLs)
     if (typeof imageItem === 'string') {
-      // Check if it's a valid URL
-      if (imageItem.startsWith('http') || imageItem.startsWith('/')) {
-        return imageItem;
-      }
+      if (imageItem.startsWith('http') || imageItem.startsWith('/')) return imageItem;
       return null;
     }
 
-    // Handle object with various URL properties
     if (imageItem && typeof imageItem === 'object') {
-      // Fetch from the database path
-      if (imageItem.path) return `/products/${imageItem.sku}/images/${imageItem.path}`; // Adjusted path
-
-      // Cloudinary response
+      // Prefer actual remote URLs first
       if (imageItem.secure_url) return imageItem.secure_url;
       if (imageItem.url) return imageItem.url;
-      
-      // File preview
       if (imageItem.preview) return imageItem.preview;
-      
-      // MongoDB stored format
       if (imageItem.src) return imageItem.src;
+
+      // Fallback: path + sku (avoid duplicating products/... if path already absolute)
+      if (imageItem.path) {
+        if (imageItem.path.startsWith('http')) return imageItem.path;
+        if (imageItem.path.startsWith('/')) return imageItem.path;
+        if (imageItem.sku) return `/products/${imageItem.sku}/images/${imageItem.path}`;
+      }
     }
 
-    // Handle File objects
-    if (imageItem instanceof File) {
-      return URL.createObjectURL(imageItem);
-    }
-
+    if (imageItem instanceof File) return URL.createObjectURL(imageItem);
     return null;
   }, []);
 
@@ -141,6 +136,50 @@ export default function ProductEditorClient({ initialProduct, productId }) {
     }
   };
 
+  // Move this function outside of renderOverview and fix the rate structure
+  const getWeightBasedPrice = useCallback(() => {
+    const material = form.material;
+    const weight = parseFloat(form.weight) || 0;
+    
+    if (!weight || !material || !rates) return null;
+    
+    // Map materials to rate properties from your API
+    const materialToRateMap = {
+      'gold': 'goldRate',
+      'silver': 'silverRate',
+      'platinum': 'goldRate', // fallback to gold rate if no platinum rate
+    };
+    
+    const rateProperty = materialToRateMap[material.toLowerCase()];
+    if (!rateProperty) return null;
+    
+    // Get the rate from the rates object structure returned by your API
+    let currentRate = null;
+    if (rates.rates && rates.rates[rateProperty]) {
+      currentRate = rates.rates[rateProperty];
+    } else if (rates[rateProperty]) {
+      currentRate = rates[rateProperty];
+    }
+    
+    if (!currentRate) return null;
+    
+    return currentRate * weight;
+  }, [form.material, form.weight, rates]);
+
+  // Update the fetchRates function to handle the API response structure
+  const fetchRates = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/rates');
+      if (!res.ok) throw new Error('Failed to fetch rates');
+      const data = await res.json();
+      console.log('Fetched rates:', data); // Debug log
+      setRates(data || {});
+    } catch (e) {
+      console.error('Error fetching rates:', e);
+      setRates({});
+    }
+  }, []);
+
   // Load initial data and store original for cancel functionality
   useEffect(() => {
     const loadInitialData = async () => {
@@ -169,7 +208,7 @@ export default function ProductEditorClient({ initialProduct, productId }) {
             toast.error("Failed to fetch product details."); // Toast notification
           }
         } catch (error) {
-          toast.error("Error loading product details."); // Toast notification
+          showToast("Error loading product details.", 'error'); // Toast notification
         } finally {
           setLoading(false); // Set loading to false after data is fetched
         }
@@ -178,6 +217,18 @@ export default function ProductEditorClient({ initialProduct, productId }) {
 
     loadInitialData();
   }, [initialProduct, productId]);
+
+  // Ensure SKU is set as soon as initialProduct is available
+  useEffect(() => {
+    if (!form.sku && initialProduct?.sku) {
+      setForm(prev => ({ ...prev, sku: initialProduct.sku }));
+    }
+  }, [initialProduct?.sku]); 
+
+  // Fetch rates on mount and when material changes
+  useEffect(() => {
+    fetchRates();
+  }, [form.material, fetchRates]);
 
   // Render loading state with a better UI
   if (loading) {
@@ -232,30 +283,59 @@ export default function ProductEditorClient({ initialProduct, productId }) {
     );
   };
 
+  // Show toast notification
+  const showToast = (message, type = 'success') => {
+    const isSuccess = type === 'success';
+    const toast = document.createElement("div");
+    toast.className = `fixed top-4 right-4 bg-gradient-to-r ${
+      isSuccess ? 'from-emerald-500 to-green-600' : 'from-red-500 to-pink-600'
+    } text-white px-6 py-4 rounded-xl shadow-2xl z-50 transform transition-all duration-500 translate-x-full`;
+    
+    toast.innerHTML = `
+      <div class="flex items-center space-x-3">
+        <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            ${isSuccess 
+              ? '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>'
+              : '<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>'
+            }
+          </svg>
+        </div>
+        <span class="font-semibold">${message}</span>
+      </div>`;
+    
+    document.body.appendChild(toast);
+    setTimeout(() => toast.classList.remove("translate-x-full"), 100);
+    setTimeout(() => {
+      toast.classList.add("translate-x-full");
+      setTimeout(() => document.body.removeChild(toast), 500);
+    }, isSuccess ? 3000 : 5000);
+  };
+
   const handleSave = async () => {
     setSaving(true);
+    showToast('Saving product...', 'info'); // Show saving toast
+
     try {
+      const payload = {
+        ...form,
+        coverImage: form.coverImage || form.image?.[0] || ""
+      };
       const res = await fetch(`/api/admin/products/${productId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        body: JSON.stringify(payload)
       });
-      
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.message || "Update failed");
-      }
 
-      toast.success("Product updated successfully!");
-      setEditing(false);
+      if (!res.ok) throw new Error('Failed to save product');
+
+      showToast('Product saved successfully!', 'success'); // Success toast
+      setEditing(false); // Reset editing state
       setOriginalForm(form);
-      
-      // Refresh the page to show updated data
-      window.location.reload();
+      window.location.reload(); // Refresh the page
     } catch (e) {
       console.error("Save error:", e);
-      toast.error(e.message || "Save failed");
+      showToast(e.message || "Error saving product. Please try again.", 'error'); // Error toast
     } finally {
       setSaving(false);
     }
@@ -264,7 +344,7 @@ export default function ProductEditorClient({ initialProduct, productId }) {
   const handleCancel = () => {
     setForm(originalForm);
     setEditing(false);
-    toast.info("Changes cancelled");
+    showToast("Changes cancelled", 'info'); // Use showToast instead of toast
   };
 
   const handleDelete = async () => {
@@ -428,7 +508,7 @@ export default function ProductEditorClient({ initialProduct, productId }) {
   };
 
   const renderOverview = () => {
-    const primaryImageSrc = getImageSrc(form.image?.[0]);
+    const primaryImageSrc = getImageSrc(form.coverImage || form.image?.[0]);
 
     return (
       <motion.div
@@ -453,6 +533,11 @@ export default function ProductEditorClient({ initialProduct, productId }) {
                 <FaEye />
               </button>
             )}
+            {form.coverImage && (
+              <div className="absolute bottom-3 left-3 bg-black/60 text-xs px-3 py-1 rounded-full text-gold border border-gold/40">
+                Cover Image
+              </div>
+            )}
           </div>
           <div className="flex-1 space-y-6">
             <h2 className="text-3xl font-bold text-primary flex items-center gap-3 flex-wrap">
@@ -472,18 +557,22 @@ export default function ProductEditorClient({ initialProduct, productId }) {
                 ))}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Stat label="Price Type" value={form.priceType} />
+              <Stat label="Weight" value={`${form.weight || 0} gm`} />
               <Stat
-                label="Price / Weight"
+                label="Price"
                 value={
                   form.priceType === "fixed"
                     ? `₹${Number(form.fixedPrice || 0).toLocaleString("en-IN")}`
-                    : `${form.weight || 0} g`
+                    : (
+                      getWeightBasedPrice() !== null
+                        ? `₹${Number(getWeightBasedPrice()).toLocaleString("en-IN")}`
+                        : "Rate not available"
+                    )
                 }
               />
-              <Stat label="Stock" value={form.stock} />
-              <Stat label="Min Stock" value={form.minStock} />
-              <Stat label="SKU" value={form.sku} />
+              <Stat label="Stock" value={form.stock || 0} />
+              <Stat label="Min Stock" value={form.minStock || 0} />
+              <Stat label="SKU" value={form.sku || "—"} />
               <Stat
                 label="Dimensions"
                 value={`${form.dimensions.length || "-"} × ${form.dimensions.width || "-"} × ${form.dimensions.height || "-"}`}
@@ -493,6 +582,18 @@ export default function ProductEditorClient({ initialProduct, productId }) {
             </div>
           </div>
         </div>
+
+        {/* Debug section - remove this after testing */}
+        {editing && (
+          <div className="bg-red-500/10 border border-red-400/30 p-3 rounded-lg text-xs text-red-300">
+            <strong>Debug Info:</strong><br/>
+            Material: {form.material}<br/>
+            Weight: {form.weight}<br/>
+            Price Type: {form.priceType}<br/>
+            Rates: {JSON.stringify(rates)}<br/>
+            Calculated Price: {getWeightBasedPrice()}
+          </div>
+        )}
 
         {/* Image Preview Modal */}
         <AnimatePresence>
@@ -557,7 +658,7 @@ export default function ProductEditorClient({ initialProduct, productId }) {
             disabled={!editing}
           >
             <option value="">Select Category</option>
-            {["Rings","Necklaces","Earrings","Bracelets","Bangles","Pendants"].map(c => 
+            {["Rings", "Necklaces", "Earrings", "Bracelets", "Bangles", "Pendants", "Other"].map(c => 
               <option key={c} value={c}>{c}</option>
             )}
           </ModernSelect>
@@ -566,27 +667,76 @@ export default function ProductEditorClient({ initialProduct, productId }) {
         <Input label="Material" required>
           <ModernSelect
             value={form.material}
-            onChange={(e) => setField("material", e.target.value)}
+            onChange={(e) => {
+              setField("material", e.target.value);
+              // Reset mixed metals and gemstones based on selected material
+              if (e.target.value !== "Mixed") setField("mixedMetals", []);
+              if (e.target.value !== "Gemstone") setField("gemstones", []);
+            }}
             disabled={!editing}
           >
             <option value="">Select Material</option>
-            {["Gold","Silver","Platinum","Diamond","Mixed"].map(m => 
+            {["Gold", "Silver", "Platinum", "Diamond", "Mixed", "Gemstone", "Other"].map(m => 
               <option key={m} value={m}>{m}</option>
             )}
           </ModernSelect>
         </Input>
 
-        <Input label="Status" required>
-          <ModernSelect
-            value={form.status}
-            onChange={(e) => setField("status", e.target.value)}
-            disabled={!editing}
-          >
-            {["Available","Low Stock","Out of Stock","Discontinued"].map(s => 
-              <option key={s} value={s}>{s}</option>
+        {/* Show Mixed Metals if "Mixed" is selected */}
+        {form.material === "Mixed" && (
+          <Input label="Mixed Metals">
+            <ModernSelect
+              value={form.mixedMetals[0] || ""}
+              onChange={(e) => {
+                const selected = e.target.value;
+                setField("mixedMetals", [selected]);
+              }}
+              disabled={!editing}
+            >
+              <option value="">Select Mixed Metal</option>
+              {['Gold-Silver', 'Gold-Platinum', 'Silver-Platinum', 'Gold-Silver-Platinum', 'Gold-Rose Gold', 'White Gold-Yellow Gold'].map(metal => 
+                <option key={metal} value={metal}>{metal}</option>
+              )}
+              <option value="Custom">Custom</option>
+            </ModernSelect>
+            {form.mixedMetals[0] === "Custom" && (
+              <ModernInput
+                value={form.customMixedMetal || ""}
+                onChange={(e) => setField("customMixedMetal", e.target.value)}
+                disabled={!editing}
+                placeholder="Enter custom mixed metal"
+              />
             )}
-          </ModernSelect>
-        </Input>
+          </Input>
+        )}
+
+        {/* Show Gemstones if "Gemstone" is selected */}
+        {form.material === "Gemstone" && (
+          <Input label="Gemstones">
+            <ModernSelect
+              value={form.gemstones[0] || ""}
+              onChange={(e) => {
+                const selected = e.target.value;
+                setField("gemstones", [selected]);
+              }}
+              disabled={!editing}
+            >
+              <option value="">Select Gemstone</option>
+              {['Ruby', 'Sapphire', 'Emerald', 'Opal', 'Topaz', 'Amethyst', 'Pearl', 'Other'].map(gemstone => 
+                <option key={gemstone} value={gemstone}>{gemstone}</option>
+              )}
+              <option value="Custom">Custom</option>
+            </ModernSelect>
+            {form.gemstones[0] === "Custom" && (
+              <ModernInput
+                value={form.customGemstone || ""}
+                onChange={(e) => setField("customGemstone", e.target.value)}
+                disabled={!editing}
+                placeholder="Enter custom gemstone"
+              />
+            )}
+          </Input>
+        )}
 
         <div className="md:col-span-2">
           <Input label="Description">
@@ -599,21 +749,6 @@ export default function ProductEditorClient({ initialProduct, productId }) {
             />
           </Input>
         </div>
-
-        {form.material === "Mixed" && (
-          <div className="md:col-span-2">
-            <Input label="Mixed Metals">
-              <ModernInput
-                value={form.mixedMetals.join(", ")}
-                onChange={(e) =>
-                  setField("mixedMetals", e.target.value.split(",").map(v => v.trim()).filter(Boolean))
-                }
-                disabled={!editing}
-                placeholder="e.g. Gold, Silver, Platinum"
-              />
-            </Input>
-          </div>
-        )}
       </SectionCard>
     </motion.div>
   );
@@ -626,36 +761,40 @@ export default function ProductEditorClient({ initialProduct, productId }) {
             <ModernSelect
               value={form.priceType}
               disabled={!editing}
-              onChange={(e) => setField("priceType", e.target.value)}
+              onChange={(e) => {
+                setField("priceType", e.target.value);
+                // Reset fixed price when switching to weight-based
+                if (e.target.value === "weight-based") {
+                  setField("fixedPrice", ""); // Clear fixed price if switching to weight-based
+                }
+              }}
             >
               <option value="fixed">Fixed Price</option>
               <option value="weight-based">Weight Based</option>
             </ModernSelect>
           </Input>
-          
-          {form.priceType === "fixed" && (
-            <Input label="Fixed Price (₹)" required>
-              <ModernInput
-                type="number"
-                value={form.fixedPrice}
-                disabled={!editing}
-                onChange={(e) => setField("fixedPrice", e.target.value)}
-                placeholder="0.00"
-              />
-            </Input>
-          )}
-          
-          {form.priceType === "weight-based" && (
-            <Input label="Weight (grams)" required>
-              <ModernInput
-                type="number"
-                value={form.weight}
-                disabled={!editing}
-                onChange={(e) => setField("weight", e.target.value)}
-                placeholder="0.00"
-              />
-            </Input>
-          )}
+
+          {/* Fixed Price Input */}
+          <Input label="Fixed Price (₹)" required>
+            <ModernInput
+              type="number"
+              value={form.fixedPrice}
+              disabled={!editing || form.priceType === "weight-based"}
+              onChange={(e) => setField("fixedPrice", e.target.value)}
+              placeholder="0.00"
+            />
+          </Input>
+
+          {/* Weight Input */}
+          <Input label="Weight (grams)" required>
+            <ModernInput
+              type="number"
+              value={form.weight}
+              disabled={!editing}
+              onChange={(e) => setField("weight", e.target.value)}
+              placeholder="0.00"
+            />
+          </Input>
         </div>
       </SectionCard>
     </motion.div>
@@ -687,7 +826,7 @@ export default function ProductEditorClient({ initialProduct, productId }) {
         <Input label="SKU">
           <ModernInput
             value={form.sku}
-            disabled={true}
+            disabled={true} // Always read-only
             placeholder="Auto-generated"
           />
         </Input>
@@ -723,91 +862,343 @@ export default function ProductEditorClient({ initialProduct, productId }) {
     </motion.div>
   );
 
-  const renderMedia = () => (
-    <motion.div key="media" variants={fade} initial="hidden" animate="show" exit="exit" className="space-y-6">
-      <SectionCard title="Media Gallery" cols={1}>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h5 className="text-sm font-semibold text-primary">Current Images ({form.image?.length || 0})</h5>
-            {editing && (
-              <div className="flex items-center gap-2 text-xs text-secondary">
-                <FaUpload className="text-gold" />
-                <span>Edit mode: You can upload new images below</span>
-              </div>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {form.image && form.image.length > 0 ? (
-              form.image.map((img, idx) => (
-                <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-white/10 group bg-primary/5">
-                  <ProductImage imageSrc={getImageSrc(img)} alt={`Product image ${idx + 1}`} />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all duration-200 flex items-center justify-center">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center gap-2">
-                      <span className="text-white text-xs bg-black/50 px-2 py-1 rounded">
-                        Image {idx + 1}
-                      </span>
-                      {idx === 0 && (
-                        <span className="text-gold text-xs bg-gold/20 px-2 py-1 rounded">
-                          Main Image
-                        </span>
-                      )}
-                      <button
-                        onClick={() => {
-                          // Handle image deletion
-                          const updatedImages = form.image.filter((_, i) => i !== idx);
-                          setField("image", updatedImages);
-                          toast.success("Image deleted successfully!");
-                        }}
-                        className="text-white hover:text-gold transition-colors"
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-12 text-secondary border-2 border-dashed border-white/10 rounded-xl">
-                <FaImage className="text-4xl opacity-40 mx-auto mb-4" />
-                <p className="text-sm mb-2">No images uploaded yet</p>
-                <p className="text-xs opacity-70">
-                  {editing ? "Use the upload section below to add images" : "Enable editing mode to upload images"}
-                </p>
-              </div>
-            )}
+  // Simple inline media manager (edit context)
+  function InlineMediaManager({ sku, images, onChange }) {
+    const [busy, setBusy] = useState(false);
+    const [dragFrom, setDragFrom] = useState(null);
+    const [dragOver, setDragOver] = useState(null);
+    const fileRef = useRef(null);
+    const lastCoverRef = useRef(images?.[0]);
+
+    const effectiveSku = useMemo(() => {
+      if (sku && sku.trim()) return sku.trim();
+      for (const img of images || []) {
+        const url = typeof img === 'string' ? img : (img?.secure_url || img?.url || "");
+        if (url) {
+          const m = url.match(/\/products\/([^/]+)\/images\//i);
+          if (m) return m[1];
+        }
+      }
+      return "";
+    }, [sku, images]);
+
+    const pushImages = (next) => {
+      if (!Array.isArray(next)) return;
+      onChange(next);
+      setField('coverImage', next[0] || "");
+      toast.info("Images added. Remember to save changes!"); // Add toast notification
+    };
+
+    const setImages = (next) => pushImages(next);
+
+    const openPicker = () => fileRef.current?.click();
+
+    const setCover = (idx) => {
+      if (idx === 0) return;
+      const next = [...images];
+      const [spliced] = next.splice(idx, 1);
+      next.unshift(spliced);
+      setImages(next);
+    };
+
+    const removeAt = (idx) => {
+      const next = images.filter((_, i) => i !== idx);
+      setImages(next);
+    };
+
+    // Drag & drop reordering
+    const onDragStart = (e, idx) => {
+      setDragFrom(idx);
+      e.dataTransfer.effectAllowed = "move";
+    };
+    const onDragEnter = (idx) => {
+      if (idx !== dragOver) setDragOver(idx);
+    };
+    const onDragEnd = () => {
+      if (dragFrom != null && dragOver != null && dragFrom !== dragOver) {
+        const next = [...images];
+        const [moved] = next.splice(dragFrom, 1);
+        next.splice(dragOver, 0, moved);
+        setImages(next);
+      }
+      setDragFrom(null);
+      setDragOver(null);
+    };
+
+    // Upload helpers
+    const getSignature = async (folder) => {
+      const cleanFolder = folder.replace(/(^\/+)|(\.\.)/g, '');
+      const timestamp = Math.round(Date.now() / 1000);
+      const res = await fetch('/api/admin/products/cloudinary/signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paramsToSign: {
+            folder: cleanFolder,
+            timestamp
+          }
+        })
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        console.error('Signature endpoint failed', { status: res.status, body: text });
+        toast.error('Signature request failed');
+        throw new Error('Signature fetch failed');
+      }
+      let json;
+      try { json = JSON.parse(text); } catch {
+        console.error('Signature JSON parse error', text);
+        throw new Error('Bad signature JSON');
+      }
+      if (!json.signature || !json.timestamp || !json.apiKey || !json.cloudName) {
+        console.error('Incomplete signature payload', json);
+        throw new Error('Incomplete signature payload');
+      }
+      return json;
+    };
+
+    const uploadFile = async (file) => {
+      const folder = `products/${effectiveSku}/images`;
+      const sig = await getSignature(folder); // throws if invalid
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('api_key', sig.apiKey);
+      fd.append('timestamp', sig.timestamp);
+      fd.append('signature', sig.signature);
+      fd.append('folder', folder);
+
+      const upl = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloudName}/upload`, {
+        method: 'POST',
+        body: fd
+      });
+      if (!upl.ok) {
+        const errTxt = await upl.text();
+        console.error('Cloudinary upload error', upl.status, errTxt);
+        toast.error('Upload failed');
+        throw new Error('Upload failed');
+      }
+      return upl.json();
+    };
+
+    const handleFiles = async (list) => {
+      if (!list?.length) return;
+      if (!effectiveSku) {
+        toast.error('SKU not ready yet');
+        return;
+      }
+      setBusy(true);
+      try {
+        const results = [];
+        for (const file of Array.from(list)) {
+          const res = await uploadFile(file);
+          results.push(res.secure_url);
+        }
+        setImages([...(images || []), ...results]);
+      } catch (e) {
+        console.error(e);
+        toast.error('Upload failed');
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    // Root drop zone
+    const onRootDrop = (e) => {
+      e.preventDefault();
+      const files = e.dataTransfer.files;
+      handleFiles(files);
+    };
+    const prevent = (e) => e.preventDefault();
+
+    return (
+      <div
+        className="space-y-4"
+        onDragOver={prevent}
+        onDrop={onRootDrop}
+      >
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          hidden
+          accept="image/*"
+          onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
+        />
+
+        {/* Header / Status */}
+        <div className="flex flex-wrap items-center gap-4">
+          <button
+            type="button"
+            onClick={openPicker}
+            disabled={!effectiveSku || busy}
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-gold to-amber-500 text-black hover:opacity-90 disabled:opacity-40 shadow-md"
+          >
+            {busy ? 'Uploading…' : 'Upload Images'}
+          </button>
+          <div className="text-xs font-medium text-secondary flex items-center gap-3">
+            <span>SKU: <span className="text-primary">{effectiveSku || 'waiting…'}</span></span>
+            <span>{images.length} image{images.length !== 1 && 's'}</span>
+            {busy && <span className="text-amber-400 animate-pulse">Processing…</span>}
           </div>
         </div>
 
-        {editing && (
-          <div className="border-t border-white/10 pt-6">
-            <div className="flex items-center gap-3 mb-4">
-              <FaUpload className="text-gold" />
-              <h5 className="text-sm font-semibold text-primary">Upload New Images</h5>
-              <Badge color="amber">Editing Mode</Badge>
-            </div>
-            
-            <StepMedia
-  formData={{ 
-    image: form.image || [],
-    sku: form.sku
-  }}
-  onChange={(field, value) => {
-    if (field === 'image') {
-      setField('image', value); // Update the image field directly
-    } else {
-      setField(field, value);
-    }
-  }}
-  onNestedChange={(parent, field, value) => setNested(parent, field, value)}
-  uploadMode="immediate"
-  showInstructions={true}
-/>
+        {/* Info panel */}
+        <div className="rounded-xl bg-primary/5 border border-white/10 p-3 text-[11px] leading-relaxed text-secondary flex flex-wrap gap-x-6 gap-y-2">
+          <span><strong>Tips:</strong> Drag to reorder • First image = Cover</span>
+          <span>Recommended: 1200×1200 PNG/JPG</span>
+          <span>You can drop files anywhere inside this box</span>
+        </div>
+
+        {!effectiveSku && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-400/30 text-xs text-red-300">
+            Cannot upload until SKU is available.
           </div>
         )}
-      </SectionCard>
-    </motion.div>
-  );
+
+        {/* Empty */}
+        {!images.length && (
+          <div
+            onClick={openPicker}
+            className="cursor-pointer relative p-10 border-2 border-dashed border-white/15 rounded-2xl text-center text-sm text-secondary hover:border-gold/50 hover:bg-primary/5 transition"
+          >
+            <FaUpload className="mx-auto mb-3 text-2xl opacity-50" />
+            <p className="font-medium text-primary">Click or Drop Images to Upload</p>
+            <p className="mt-1 text-xs">PNG • JPG • WEBP</p>
+          </div>
+        )}
+
+        {/* Grid */}
+        {images.length > 0 && (
+          <div
+            className="grid gap-4"
+            style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(170px,1fr))' }}
+          >
+            {/* Add tile */}
+            <button
+              type="button"
+              onClick={openPicker}
+              className="aspect-square rounded-xl border-2 border-dashed border-white/15 hover:border-gold/60 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 text-secondary text-xs font-medium transition group"
+            >
+              <FaUpload className="text-lg opacity-50 group-hover:text-gold group-hover:opacity-100" />
+              <span>Add</span>
+            </button>
+
+            {images.map((img, i) => {
+              const url = typeof img === 'string'
+                ? img
+                : (img?.secure_url || img?.url || img?.path || '');
+              const isCover = i === 0;
+              const dragging = dragOver === i && dragFrom != null && dragFrom !== dragOver;
+
+              return (
+                <div
+                  key={i}
+                  draggable
+                  onDragStart={(e) => onDragStart(e, i)}
+                  onDragEnter={() => onDragEnter(i)}
+                  onDragEnd={onDragEnd}
+                  className={`relative aspect-square rounded-xl overflow-hidden border group bg-primary/10
+                    ${isCover ? 'border-gold shadow-lg shadow-gold/20' : 'border-white/10 hover:border-white/30'}
+                    ${dragging ? 'ring-2 ring-gold/80 scale-[1.02]' : ''}
+                    transition`}
+                >
+                  <img
+                    src={url}
+                    alt={`image-${i}`}
+                    className="w-full h-full object-cover pointer-events-none"
+                    onError={(e) => { e.currentTarget.style.opacity = 0.25; }}
+                  />
+                  {/* Cover badge */}
+                  {isCover && (
+                    <div className="absolute top-1 left-1 bg-gold text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1 text-black">
+                      ⭐ Cover
+                    </div>
+                  )}
+                  {/* Drag hint */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-black/45 flex flex-col justify-between p-1 transition">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => removeAt(i)}
+                        type="button"
+                        className="bg-red-500/90 hover:bg-red-600 text-white rounded px-2 py-1 text-[10px]"
+                        title="Remove"
+                      >✕</button>
+                    </div>
+                    <div className="flex justify-between items-end">
+                      {!isCover && (
+                        <button
+                          onClick={() => setCover(i)}
+                          type="button"
+                          className="bg-gold/90 hover:bg-gold text-black rounded px-2 py-1 text-[10px] font-semibold"
+                          title="Set Cover"
+                        >Set Cover</button>
+                      )}
+                      <span className="text-[10px] text-white/70 px-2 py-1 rounded bg-white/10">
+                        Drag to reorder
+                      </span>
+                    </div>
+                  </div>
+                  {busy && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <div className="h-6 w-6 border-2 border-gold border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMedia = () => {
+    const productSku =
+      (form.sku && form.sku.trim()) ||
+      (initialProduct?.sku && initialProduct.sku.trim()) ||
+      (initialProduct?.product?.sku && initialProduct.product.sku.trim()) ||
+      "";
+
+    return (
+      <motion.div key="media" variants={fade} initial="hidden" animate="show" exit="exit" className="space-y-6">
+        <SectionCard title="Media Gallery" cols={1}>
+          {editing ? (
+            <InlineMediaManager
+              sku={productSku}
+              images={form.image || []}
+              onChange={(imgs) => setField('image', imgs)}
+            />
+          ) : (
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(170px,1fr))' }}>
+              {(form.image || []).map((img, i) => {
+                const url = typeof img === 'string'
+                  ? img
+                  : (img?.secure_url || img?.url || img?.path || '');
+                return (
+                  <div
+                    key={i}
+                    className={`relative aspect-square rounded-xl overflow-hidden border ${i === 0 ? 'border-gold' : 'border-white/10'} bg-primary/10`}
+                  >
+                    <img src={url} alt={`image-${i}`} className="w-full h-full object-cover" />
+                    {i === 0 && (
+                      <div className="absolute top-1 left-1 bg-gold text-[10px] font-semibold px-2 py-0.5 rounded text-black">
+                        Cover
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {(!form.image || form.image.length === 0) && (
+                <div className="col-span-full p-10 border-2 border-dashed border-white/15 rounded-2xl text-center text-sm text-secondary">
+                  No images.
+                </div>
+              )}
+            </div>
+          )}
+        </SectionCard>
+      </motion.div>
+    );
+  };
 
   const renderCustomization = () => (
     <motion.div key="customization" variants={fade} initial="hidden" animate="show" exit="exit" className="space-y-6">
@@ -1038,6 +1429,15 @@ export default function ProductEditorClient({ initialProduct, productId }) {
 
   return (
     <div className="flex flex-col h-full p-4 md:p-6 space-y-6">
+      {/* Overlay */}
+      {isOverlayVisible && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg shadow-lg">
+            <p className="text-lg font-semibold">{overlayMessage}</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-secondary/80 via-secondary/70 to-secondary/60 backdrop-blur-xl rounded-2xl px-6 py-5 border border-white/20 shadow-xl">
         <div className="flex items-center gap-4">
@@ -1115,14 +1515,14 @@ export default function ProductEditorClient({ initialProduct, productId }) {
                 <div className="flex gap-3">
                   <button
                     onClick={handleCancel}
-                    className="px-6 py-3 rounded-xl bg-black/20 hover:bg-black/30 text-black font-semibold border border-black/20 transition-all hover:scale-105"
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30 text-black font-semibold border border-black/20 transition-all hover:scale-105"
                   >
                     <FaTimes className="inline mr-2" /> Cancel
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-8 py-3 rounded-xl bg-gradient-to-r from-yellow-200 via-yellow-400 to-amber-400 text-white font-bold transition-all hover:scale-105 shadow-lg disabled:opacity-50 disabled:scale-100"
+                    className="px-8 py-3 rounded-xl bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-400 border border-amber-100 text-white font-bold transition-all hover:scale-105 shadow-lg disabled:opacity-50 disabled:scale-100"
                   >
                     <FaSave className="inline mr-2" />
                     {saving ? "Saving..." : "Save Changes"}

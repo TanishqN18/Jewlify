@@ -121,18 +121,17 @@ export default function StepPricing({
           {errors?.fixedPrice && <p className="text-xs text-red-400 mt-1">{errors.fixedPrice}</p>}
         </div>
 
-        {/* Approx Weight */}
-        <div className={`${priceType !== "weight-based" ? "opacity-60" : ""}`}>
+        {/* Approx Weight - Always displayed */}
+        <div>
           <label className="block text-sm font-semibold text-secondary mb-2">Approx Weight (g)</label>
           <div className="relative">
             <input
               type="number"
               inputMode="decimal"
               value={weight}
-              disabled={priceType !== "weight-based"}
               onChange={(e) => handle("weight", e.target.value)}
               placeholder="5.20"
-              className="w-full bg-gradient-to-r from-primary/20 to-primary/10 border border-white/20 rounded-xl pl-9 pr-4 py-3 text-primary placeholder:text-secondary/60 focus:outline-none focus:border-gold focus:shadow-lg focus:shadow-gold/20 transition-all text-sm disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-primary/20 to-primary/10 border border-white/20 rounded-xl pl-9 pr-4 py-3 text-primary placeholder:text-secondary/60 focus:outline-none focus:border-gold focus:shadow-lg focus:shadow-gold/20 transition-all text-sm"
             />
             <FaBalanceScale className="absolute left-3 top-3.5 text-secondary/60" />
           </div>
