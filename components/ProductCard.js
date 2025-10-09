@@ -16,6 +16,11 @@ export default function ProductCard({ product, showBadge = false }) {
   const primaryImg = Array.isArray(product?.image) ? product.image[0] : product?.image;
   const hoverImg = Array.isArray(product?.image) && product.image[1] ? product.image[1] : primaryImg;
 
+  // Ensure images are from Cloudinary or a fallback
+  const cloudinaryBaseUrl = 'https://res.cloudinary.com/your-cloud-name/image/upload/'; // Replace with your Cloudinary base URL
+  const formattedPrimaryImg = primaryImg ? `${cloudinaryBaseUrl}${primaryImg}` : '/fallback.png';
+  const formattedHoverImg = hoverImg ? `${cloudinaryBaseUrl}${hoverImg}` : formattedPrimaryImg;
+
   // Stable currency formatting
   const inr = useMemo(() => new Intl.NumberFormat('en-IN'), []);
   const priceNum = typeof product?.price === 'number' ? product.price : Number(product?.price || 0);
@@ -56,7 +61,7 @@ export default function ProductCard({ product, showBadge = false }) {
       <div className="relative w-full h-56 md:h-64 lg:h-72 overflow-hidden">
         {/* Base image */}
         <Image
-          src={primaryImg || '/placeholder.png'}
+          src={formattedPrimaryImg}
           alt={product?.name || 'Product'}
           fill
           sizes="(max-width: 768px) 100vw, 33vw"
@@ -64,9 +69,9 @@ export default function ProductCard({ product, showBadge = false }) {
           priority={false}
         />
         {/* Hover image crossfade */}
-        {hoverImg && hoverImg !== primaryImg && (
+        {formattedHoverImg && formattedHoverImg !== formattedPrimaryImg && (
           <Image
-            src={hoverImg}
+            src={formattedHoverImg}
             alt={`${product?.name || 'Product'} alt`}
             fill
             sizes="(max-width: 768px) 100vw, 33vw"

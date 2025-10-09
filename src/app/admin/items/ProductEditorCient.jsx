@@ -314,28 +314,145 @@ export default function ProductEditorClient({ initialProduct, productId }) {
 
   const handleSave = async () => {
     setSaving(true);
-    showToast('Saving product...', 'info'); // Show saving toast
+    showToast('Saving product...', 'info'); // Show saving toast first
 
     try {
+      // Basic validation
+      if (!form.name?.trim()) {
+        showToast('Product name is required', 'error');
+        setActiveTab('Basic');
+        setSaving(false);
+        return;
+      }
+      
+      if (!form.category) {
+        showToast('Category is required', 'error');
+        setActiveTab('Basic');
+        setSaving(false);
+        return;
+      }
+      
+      if (!form.material) {
+        showToast('Material is required', 'error');
+        setActiveTab('Basic');
+        setSaving(false);
+        return;
+      }
+
+      // Price validation based on type
+      if (form.priceType === 'fixed' && (!form.fixedPrice || parseFloat(form.fixedPrice) <= 0)) {
+        showToast('Valid fixed price is required', 'error');
+        setActiveTab('Pricing');
+        setSaving(false);
+        return;
+      }
+
+      if (form.priceType === 'weight-based' && (!form.weight || parseFloat(form.weight) <= 0)) {
+        showToast('Valid weight is required for weight-based pricing', 'error');
+        setActiveTab('Pricing');
+        setSaving(false);
+        return;
+      }
+
+      // Prepare payload with proper data cleaning
       const payload = {
         ...form,
-        coverImage: form.coverImage || form.image?.[0] || ""
+        
+        // Clean up string fields
+        name: form.name?.trim(),
+        description: form.description?.trim(),
+        sku: form.sku?.trim(),
+        seoTitle: form.seoTitle?.trim(),
+        seoDescription: form.seoDescription?.trim(),
+        seoKeywords: form.seoKeywords?.trim(),
+        slug: form.slug?.trim(),
+        
+        // Ensure proper data types for numeric fields
+        fixedPrice: form.fixedPrice ? parseFloat(form.fixedPrice) : null,
+        weight: form.weight ? parseFloat(form.weight) : 0,
+        stock: form.stock ? parseInt(form.stock) : 0,
+        minStock: form.minStock ? parseInt(form.minStock) : 5,
+        
+        // Handle cover image
+        coverImage: form.coverImage || form.image?.[0] || "",
+        
+        // Ensure arrays are properly formatted
+        image: Array.isArray(form.image) ? form.image : [],
+        variants: Array.isArray(form.variants) ? form.variants : [],
+        
+        // Handle material-specific arrays
+        gemstones: form.material === 'Gemstone' && Array.isArray(form.gemstones) 
+          ? form.gemstones 
+          : [],
+        mixedMetals: form.material === 'Mixed' && Array.isArray(form.mixedMetals) 
+          ? form.mixedMetals 
+          : [],
+        
+        // Ensure dimensions object is properly formatted
+        dimensions: {
+          length: form.dimensions?.length ? parseFloat(form.dimensions.length) : 0,
+          width: form.dimensions?.width ? parseFloat(form.dimensions.width) : 0,
+          height: form.dimensions?.height ? parseFloat(form.dimensions.height) : 0,
+        },
+        
+        // Ensure customization options are properly formatted
+        customizationOptions: {
+          allowEngraving: Boolean(form.customizationOptions?.allowEngraving),
+          maxEngravingLength: form.customizationOptions?.maxEngravingLength 
+            ? parseInt(form.customizationOptions.maxEngravingLength) 
+            : 20,
+          allowSpecialInstructions: Boolean(form.customizationOptions?.allowSpecialInstructions),
+          sizeOptions: Array.isArray(form.customizationOptions?.sizeOptions) 
+            ? form.customizationOptions.sizeOptions 
+            : [],
+        },
+
+        // New fields for image handling
+        imageUrls: form.image, // Store images under imageUrls
+        image: [], // Clear the image array
       };
+
+      console.log('🚀 Sending update payload:', payload);
+      console.log('📍 Product ID:', productId);
+
+      // Make the API call
       const res = await fetch(`/api/admin/products/${productId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          // Add any auth headers if needed
+        },
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error('Failed to save product');
+      if (!res.ok) {
+        const errorData = await res.text();
+        console.error('❌ API Error Response:', errorData);
+        
+        let errorMessage = 'Failed to save product';
+        try {
+          const errorJson = JSON.parse(errorData);
+          errorMessage = errorJson.error || errorMessage;
+          if (errorJson.details) {
+            errorMessage += ': ' + (Array.isArray(errorJson.details) 
+              ? errorJson.details.join(', ') 
+              : errorJson.details);
+          }
+        } catch (e) {
+          errorMessage = `Server error (${res.status})`;
+        }
+        
+        throw new Error(errorMessage);
+      }
 
-      showToast('Product saved successfully!', 'success'); // Success toast
-      setEditing(false); // Reset editing state
-      setOriginalForm(form);
-      window.location.reload(); // Refresh the page
-    } catch (e) {
-      console.error("Save error:", e);
-      showToast(e.message || "Error saving product. Please try again.", 'error'); // Error toast
+      const responseData = await res.json();
+      showToast('Product saved successfully!', 'success'); // Show success toast after saving
+      setEditing(false);
+      setOriginalForm(form); // Update original form to match saved data
+
+    } catch (error) {
+      console.error("💥 Save error:", error);
+      showToast(error.message || "Error saving product. Please try again.", 'error');
     } finally {
       setSaving(false);
     }

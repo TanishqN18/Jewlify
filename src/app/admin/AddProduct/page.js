@@ -85,15 +85,30 @@ export default function AddItemPage() {
           newErrors.mixedMetals = "Please select at least one metal combination";
         }
         break;
+        
       case 2:
-        if (formData.priceType === "fixed" && !formData.fixedPrice) {
-          newErrors.fixedPrice = "Fixed price is required";
+        // SKU validation
+        if (!formData.sku.trim()) {
+          newErrors.sku = "SKU is required";
         }
-        if (formData.priceType === "weight-based" && !formData.weight) {
-          newErrors.weight = "Weight is required";
+        
+        // Price type validation
+        if (formData.priceType === "fixed") {
+          if (!formData.fixedPrice || parseFloat(formData.fixedPrice) <= 0) {
+            newErrors.fixedPrice = "Valid fixed price is required";
+          }
+        } else if (formData.priceType === "weight-based") {
+          if (!formData.weight || parseFloat(formData.weight) <= 0) {
+            newErrors.weight = "Valid weight is required for weight-based pricing";
+          }
         }
-        if (!formData.stock) newErrors.stock = "Stock quantity is required";
+        
+        // Stock validation
+        if (!formData.stock || parseInt(formData.stock) < 0) {
+          newErrors.stock = "Valid stock quantity is required";
+        }
         break;
+        
       case 4:
         // Add any necessary validation for SEO settings here
         break;
@@ -236,26 +251,67 @@ export default function AddItemPage() {
       // First upload images to Cloudinary
       const uploadedImages = await uploadImagesToCloudinary();
 
-      // Prepare submit data with uploaded images
+      // Prepare submit data with proper field mapping
       const submitData = {
         ...formData,
         imageUrls: uploadedImages,
         coverImage: uploadedImages[0] || "",
-        gemstones: formData.gemstones || [], // Ensure gemstones are included
-        mixedMetals: formData.mixedMetals || [], // Ensure mixedMetals are included
+        gemstones: formData.gemstones || [],
+        mixedMetals: formData.mixedMetals || [],
         tags: Array.isArray(formData.tags)
           ? formData.tags
           : String(formData.tags || "")
               .split(",")
               .map((t) => t.trim())
               .filter(Boolean),
-        fixedPrice: formData.priceType === "fixed" ? parseFloat(formData.fixedPrice) : undefined,
-        weight: formData.priceType === "weight-based" ? parseFloat(formData.weight) : undefined,
-        stock: parseInt(formData.stock),
-        minStock: parseInt(formData.minStock),
+      
+        // Price handling - always include both but set based on type
+        priceType: formData.priceType,
+        fixedPrice: formData.priceType === "fixed" 
+          ? parseFloat(formData.fixedPrice) || 0 
+          : null,
+      
+        // Weight handling - always include weight field
+        weight: formData.weight ? parseFloat(formData.weight) : 0,
+      
+        // Additional pricing fields for weight-based
+        metalRatePerGram: formData.priceType === "weight-based" 
+          ? parseFloat(formData.metalRatePerGram) || 0 
+          : null,
+        makingChargesPercent: formData.makingChargesPercent 
+          ? parseFloat(formData.makingChargesPercent) 
+          : 12, // Default 12%
+        makingChargesFlat: formData.makingChargesFlat 
+          ? parseFloat(formData.makingChargesFlat) 
+          : null,
+      
+        // Stock and other numeric fields
+        stock: parseInt(formData.stock) || 0,
+        minStock: parseInt(formData.minStock) || 5,
+      
+        // Ensure dimensions are properly formatted
+        dimensions: {
+          length: formData.dimensions?.length ? parseFloat(formData.dimensions.length) : 0,
+          width: formData.dimensions?.width ? parseFloat(formData.dimensions.width) : 0,
+          height: formData.dimensions?.height ? parseFloat(formData.dimensions.height) : 0,
+        },
+      
+        // Material and purity
+        purityKarat: formData.purityKarat ? parseInt(formData.purityKarat) : null,
+        materialColor: formData.materialColor || null,
       };
 
+      // Remove undefined/null values but keep 0 values
+      Object.keys(submitData).forEach(key => {
+        if (submitData[key] === undefined || submitData[key] === null) {
+          delete submitData[key];
+        }
+      });
+
       console.log('📦 Final submit data:', submitData);
+      console.log('💰 Price type:', submitData.priceType);
+      console.log('💰 Fixed price:', submitData.fixedPrice);
+      console.log('⚖️ Weight:', submitData.weight);
 
       // Show saving toast
       showToast('Saving product to database...', 'info');

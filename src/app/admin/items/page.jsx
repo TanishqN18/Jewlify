@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaEdit, FaTrash, FaPlus, FaSearch, FaFilter, FaEye, FaBoxes, FaSpinner, FaCoins, FaGem } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSearch, FaFilter, FaEye, FaBoxes, FaSpinner, FaCoins, FaGem, FaTimes, FaExclamationTriangle } from 'react-icons/fa';
 
 // --- Updated Toast Function (copied from AddProduct module) ---
 function showToast(message, type = 'success') {
@@ -43,6 +43,13 @@ export default function ItemsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [pagination, setPagination] = useState({});
+  
+  // Add state for delete confirmation modal
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    productId: null,
+    productName: ''
+  });
 
   // Fetch products and rates separately
   const fetchProducts = async () => {
@@ -101,27 +108,41 @@ export default function ItemsPage() {
     return <FaGem className="text-purple-400" />;
   };
 
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm('Are you sure you want to delete this product?');
-    if (confirmed) {
-      try {
-        showToast('Deleting product...', 'info'); // Show deleting toast
+  // Updated delete functions
+  const openDeleteModal = (productId, productName) => {
+    setDeleteModal({
+      isOpen: true,
+      productId,
+      productName
+    });
+  };
 
-        const response = await fetch(`/api/admin/products/${id}`, {
-          method: 'DELETE'
-        });
+  const closeDeleteModal = () => {
+    setDeleteModal({
+      isOpen: false,
+      productId: null,
+      productName: ''
+    });
+  };
 
-        if (response.ok) {
-          showToast('Product deleted successfully!', 'success'); // Success toast
-          fetchProducts(); // Refresh the list
-        } else {
-          showToast('Failed to delete product. Please try again.', 'error'); // Error toast
-        }
-      } catch (error) {
-        showToast('Error deleting product. Please try again later.', 'error'); // Error toast
+  // Update confirmDelete function
+  const confirmDelete = async () => {
+    try {
+      showToast('Deleting product...', 'info');
+
+      const response = await fetch(`/api/admin/products/${deleteModal.productId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        showToast('Product deleted successfully!', 'success');
+        fetchProducts(); // Refresh the list
+        closeDeleteModal(); // Close modal without showing cancel toast
+      } else {
+        showToast('Failed to delete product. Please try again.', 'error');
       }
-    } else {
-      showToast('Delete action was canceled.', 'info'); // Info toast for cancel
+    } catch (error) {
+      showToast('Error deleting product. Please try again later.', 'error');
     }
   };
 
@@ -150,6 +171,63 @@ export default function ItemsPage() {
 
   return (
     <div className="h-full flex flex-col space-y-4 overflow-hidden">
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-gradient-to-br from-secondary via-secondary to-primary/20 rounded-2xl p-6 border border-white/10 shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 scale-100">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center border border-red-400/30">
+                  <FaExclamationTriangle className="text-red-400 text-xl" />
+                </div>
+                <h3 className="text-xl font-bold text-primary">Confirm Delete</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setDeleteModal({ isOpen: false, productId: null, productName: '' });
+                  showToast('Delete action was canceled.', 'info');
+                }}
+                className="text-secondary hover:text-red-400 transition-colors p-2 hover:bg-red-500/10 rounded-lg"
+              >
+                <FaTimes className="text-lg" />
+              </button>
+            </div>
+            
+            <div className="mb-8">
+              <p className="text-secondary mb-4 text-base leading-relaxed">
+                Are you sure you want to delete this product?
+              </p>
+              <div className="bg-gradient-to-r from-red-500/10 to-red-600/10 border border-red-400/30 rounded-xl p-4">
+                <p className="text-primary font-bold text-lg mb-1">
+                  {deleteModal.productName}
+                </p>
+                <p className="text-red-400 text-sm font-medium">
+                  ⚠️ This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex space-x-4">
+              <button
+                onClick={() => {
+                  closeDeleteModal(); // Close modal
+                  showToast('Delete action was canceled.', 'info'); // Show cancel toast only when explicitly canceled
+                }}
+                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-secondary/80 to-secondary border border-white/20 text-primary hover:text-white hover:border-white/40 transition-all duration-200 text-base font-semibold hover:shadow-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all duration-200 text-base font-semibold shadow-lg hover:shadow-xl hover:shadow-red-500/30 transform hover:scale-105"
+              >
+                Delete Product
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0">
         <div>
@@ -239,7 +317,7 @@ export default function ItemsPage() {
       <div className="bg-secondary rounded-lg shadow-lg border border-white/10 flex-1 flex flex-col min-h-0">
         <div className="flex-1 overflow-auto">
           <table className="w-full min-w-[1200px]">
-            <thead className="bg-primary/20  top-0">
+            <thead className="bg-primary/20 top-0">
               <tr>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-primary">Product</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-primary">Category</th>
@@ -333,14 +411,14 @@ export default function ItemsPage() {
                   <td className="px-4 py-3">
                     <div className="flex space-x-1">
                       <button 
-                        onClick={() => router.push(`/admin/items/${item._id}`)} // Combined View/Edit button
+                        onClick={() => router.push(`/admin/items/${item._id}`)}
                         className="text-blue-400 hover:text-blue-300 hover:scale-110 transition-all duration-200 p-1.5 hover:bg-blue-500/10 rounded-md flex items-center"
                       >
                         <FaEye className="text-sm mr-1" />
                         <span className="text-xs">View/Edit</span>
                       </button>
                       <button 
-                        onClick={() => handleDelete(item._id)} // Delete button
+                        onClick={() => openDeleteModal(item._id, item.name)}
                         className="text-red-400 hover:text-red-300 hover:scale-110 transition-all duration-200 p-1.5 hover:bg-red-500/10 rounded-md flex items-center"
                       >
                         <FaTrash className="text-sm mr-1" />

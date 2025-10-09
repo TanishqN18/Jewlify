@@ -114,20 +114,72 @@ export default function StepMedia({
   // Get signature for signed upload
   const getSignature = async (paramsToSign) => {
     try {
+      console.log('🔐 Requesting signature for:', paramsToSign);
+      
       const response = await fetch('/api/admin/products/cloudinary/signature', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paramsToSign })
       });
       
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
+      
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ Signature request failed:', response.status, errorText);
         throw new Error(`Failed to get signature: ${response.status} - ${errorText}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      console.log('✅ Raw API Response:', JSON.stringify(data, null, 2));
+      console.log('✅ Response type:', typeof data);
+      console.log('✅ Response keys:', Object.keys(data));
+      
+      // Debug each field specifically
+      console.log('🔍 Field by field check:');
+      console.log('  data.signature:', data.signature, typeof data.signature);
+      console.log('  data.apiKey:', data.apiKey, typeof data.apiKey);
+      console.log('  data.cloudName:', data.cloudName, typeof data.cloudName);
+      console.log('  data.timestamp:', data.timestamp, typeof data.timestamp);
+      
+      // Check if we have the required fields
+      if (!data.signature) {
+        console.error('❌ Missing signature in response:', data);
+        throw new Error('Signature not found in response');
+      }
+      
+      if (!data.apiKey) {
+        console.error('❌ Missing apiKey in response:', data);
+        console.error('❌ Available fields:', Object.keys(data));
+        throw new Error(`API key not found in response. Available fields: ${Object.keys(data).join(', ')}`);
+      }
+      
+      if (!data.cloudName) {
+        console.error('❌ Missing cloudName in response:', data);
+        console.error('❌ Available fields:', Object.keys(data));
+        throw new Error(`Cloud name not found in response. Available fields: ${Object.keys(data).join(', ')}`);
+      }
+      
+      const result = {
+        signature: data.signature,
+        apiKey: data.apiKey,
+        cloudName: data.cloudName,
+        timestamp: data.timestamp
+      };
+      
+      console.log('✅ Final processed signature data:', JSON.stringify(result, null, 2));
+      console.log('✅ All fields present:', {
+        signature: !!result.signature,
+        apiKey: !!result.apiKey,
+        cloudName: !!result.cloudName,
+        timestamp: !!result.timestamp
+      });
+      
+      return result;
     } catch (error) {
-      console.error('Signature error:', error);
+      console.error('❌ Signature request error:', error);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   };
@@ -147,11 +199,12 @@ export default function StepMedia({
       const fileName = file.name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '_');
       const publicId = `${folder}/${fileName}_${timestamp}`;
       
+      // ✅ FIX: Create params in exact format expected by Cloudinary signature
       const paramsToSign = {
+        timestamp: timestamp,
         folder: folder,
         public_id: publicId,
-        tags: 'jewelry,product,ecommerce',
-        timestamp: timestamp
+        tags: 'jewelry,product,ecommerce'
       };
 
       console.log('📁 Uploading to folder structure:', folder);
@@ -161,27 +214,65 @@ export default function StepMedia({
       const signatureData = await getSignature(paramsToSign);
       console.log('✍️ Received signature data:', signatureData);
 
+      // Validate that we have all required data
+      if (!signatureData.apiKey) {
+        console.error('❌ API key missing from signature:', signatureData);
+        throw new Error('API key not received from signature endpoint');
+      }
+      
+      if (!signatureData.cloudName) {
+        console.error('❌ Cloud name missing from signature:', signatureData);
+        throw new Error('Cloud name not received from signature endpoint');
+      }
+      
+      if (!signatureData.signature) {
+        console.error('❌ Signature missing from signature:', signatureData);
+        throw new Error('Signature not received from signature endpoint');
+      }
+
+      // ✅ FIX: Create FormData with parameters in the EXACT order and format that Cloudinary expects
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('timestamp', signatureData.timestamp.toString());
+      formData.append('api_key', signatureData.apiKey);
+      formData.append('signature', signatureData.signature);
       formData.append('folder', folder);
       formData.append('public_id', publicId);
       formData.append('tags', 'jewelry,product,ecommerce');
-      formData.append('timestamp', timestamp.toString());
-      formData.append('api_key', signatureData.api_key);
-      formData.append('signature', signatureData.signature);
 
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
+      console.log('📤 FormData contents being sent:');
+      console.log('  file:', file.name, file.size, 'bytes');
+      console.log('  timestamp:', signatureData.timestamp);
+      console.log('  api_key:', signatureData.apiKey);
+      console.log('  signature:', signatureData.signature);
+      console.log('  folder:', folder);
+      console.log('  public_id:', publicId);
+      console.log('  tags:', 'jewelry,product,ecommerce');
+
+      // ✅ Use the correct Cloudinary image upload endpoint
+      const uploadUrl = `https://api.cloudinary.com/v1_1/${signatureData.cloudName}/image/upload`;
+      console.log('🌐 Upload URL:', uploadUrl);
+
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('📊 Upload response status:', response.status);
+      console.log('📊 Upload response ok:', response.ok);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Cloudinary error response:', errorData);
-        throw new Error(errorData.error?.message || `Upload failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ Cloudinary error response (text):', errorText);
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          console.error('❌ Cloudinary error response (parsed):', errorData);
+          throw new Error(errorData.error?.message || `Upload failed: ${response.status}`);
+        } catch (parseError) {
+          console.error('❌ Could not parse error response:', parseError);
+          throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+        }
       }
 
       const data = await response.json();

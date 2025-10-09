@@ -107,11 +107,17 @@ export default function ProductGrid({ allProducts = [] }) {
               animate="show"
               variants={container}
             >
-              {toRender.map((p) => (
-                <motion.div key={p._id} layout variants={item}>
-                  <ProductCard product={p} showBadge={Boolean(p?.featured)} />
-                </motion.div>
-              ))}
+              {toRender.map((p) => {
+                // Format the image URL for Cloudinary
+                const cloudinaryBaseUrl = 'https://res.cloudinary.com/your-cloud-name/image/upload/'; // Replace with your Cloudinary base URL
+                const formattedImage = p.coverImage ? `${cloudinaryBaseUrl}${p.coverImage}` : '/placeholder.png'; // Fallback to placeholder
+
+                return (
+                  <motion.div key={p._id} layout variants={item}>
+                    <ProductCard product={{ ...p, coverImage: formattedImage }} showBadge={Boolean(p?.featured)} />
+                  </motion.div>
+                );
+              })}
             </motion.div>
 
             {/* Load more */}
